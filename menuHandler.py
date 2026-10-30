@@ -47,6 +47,22 @@ class MenuHandler:
             cat = self.find_category_for_style(self.app.style_name_var.get())
             self.app.style_category_var.set(f"[{cat}]" if cat else "")
 
+    def locate_musescore(self):
+        """Permet de sélectionner l'exécutable ou l'AppImage de MuseScore et de le stocker dans la configuration."""
+        initial_dir = os.path.dirname(self.app.musescore_path) if self.app.musescore_path and os.path.exists(self.app.musescore_path) else "/opt"
+        if not os.path.exists(initial_dir):
+            initial_dir = "."
+
+        filepath = filedialog.askopenfilename(
+            title="Localiser l'exécutable MuseScore (musescore.AppImage, etc.)",
+            initialdir=initial_dir,
+            filetypes=[("Exécutables / AppImage", "*.*"), ("Tous les fichiers", "*.*")]
+        )
+        if filepath:
+            self.app.musescore_path = filepath
+            self.app.save_config()
+            messagebox.showinfo("Préférences", f"Chemin de MuseScore enregistré avec succès :\n{filepath}")
+
     def open_style_selector(self):
         StyleSelectorModal(self.app.root, self.app.style_catalog_path, self.on_style_selected)
 
@@ -358,3 +374,49 @@ class MenuHandler:
                 messagebox.showinfo("Succès", f"PDF généré avec succès :\n{filepath}")
             except Exception as e:
                 messagebox.showerror("Erreur", f"Erreur lors de la génération du PDF :\n{e}")
+                
+    def setup_menus(self, root):
+        """Crée et configure toute la barre de menu de l'application."""
+        menubar = tk.Menu(root)
+        
+        # Menu File
+        file_menu = tk.Menu(menubar, tearoff=0)
+        file_menu.add_command(label="New", command=self.file_new)
+        file_menu.add_command(label="Load...", command=self.app.load_json_fixed)
+        file_menu.add_command(label="Save", command=self.file_save)
+        file_menu.add_command(label="Save As...", command=self.file_save_as)
+        file_menu.add_command(label="Save a Copy...", command=self.file_save_copy)
+        file_menu.add_separator()
+        
+        # Sous-menu Import
+        import_menu = tk.Menu(file_menu, tearoff=0)
+        import_menu.add_command(label="from MuseScore...", command=self.app.load_musescore_fixed)
+        import_menu.add_separator()
+        import_menu.add_command(label="from Band-in-a-Box (.sgu / .mgu / .zip)...", command=self.app.load_biab_fixed)
+        import_menu.add_separator()
+        import_menu.add_command(label="from iReal Pro...", command=self.app.import_ireal_pro_dialog)
+        file_menu.add_cascade(label="Import", menu=import_menu)
+
+        # Sous-menu Export
+        export_menu = tk.Menu(file_menu, tearoff=0)
+        export_menu.add_command(label="PDF...", command=self.generate_pdf)
+        file_menu.add_cascade(label="Export", menu=export_menu)
+
+        file_menu.add_separator()
+        file_menu.add_command(label="Close", command=self.file_close)
+        menubar.add_cascade(label="File", menu=file_menu)
+
+        # Menu Style
+        style_menu = tk.Menu(menubar, tearoff=0)
+        style_menu.add_command(label="Select Arranger...", command=self.select_arranger)
+        style_menu.add_command(label="Choose Style...", command=self.open_style_selector)
+        menubar.add_cascade(label="Style", menu=style_menu)
+
+        # Menu Preferences (Avec l'option Locate MuseScore)
+        pref_menu = tk.Menu(menubar, tearoff=0)
+        pref_menu.add_command(label="Locate MuseScore...", command=self.locate_musescore)
+        menubar.add_cascade(label="Preferences", menu=pref_menu)
+
+        root.config(menu=menubar)
+        return menubar
+                

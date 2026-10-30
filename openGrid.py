@@ -100,6 +100,7 @@ class HybridGridEditorApp:
         self.last_pdf_filepath = None
         self.style_catalog_path = DEFAULT_CATALOG_PATH
         self.midi_port_idx = 0
+        self.musescore_path = None
         self.arranger_process = None
         self.is_modified = False
 
@@ -115,44 +116,8 @@ class HybridGridEditorApp:
         self.root.drop_target_register(DND_FILES)
         self.root.dnd_bind('<<Drop>>', self.handle_file_drop)
 
-        # Création de la barre de menu
-        menubar = tk.Menu(root)
-        
-        # Menu File (Restructuré)
-        file_menu = tk.Menu(menubar, tearoff=0)
-        file_menu.add_command(label="New", command=self.menu_handler.file_new)
-        file_menu.add_command(label="Load...", command=self.load_json_fixed)
-        file_menu.add_command(label="Save", command=self.menu_handler.file_save)
-        file_menu.add_command(label="Save As...", command=self.menu_handler.file_save_as)
-        file_menu.add_command(label="Save a Copy...", command=self.menu_handler.file_save_copy)
-        file_menu.add_separator()
-        
-        # Sous-menu Import
-        import_menu = tk.Menu(file_menu, tearoff=0)
-        import_menu.add_command(label="from MuseScore...", command=self.load_musescore_fixed)
-        import_menu.add_separator()
-        import_menu.add_command(label="from Band-in-a-Box (.sgu / .mgu / .zip)...", command=self.load_biab_fixed)
-        import_menu.add_separator()
-        import_menu.add_command(label="from iReal Pro...", command=self.import_ireal_pro_dialog)
-        file_menu.add_cascade(label="Import", menu=import_menu)
-
-        # Sous-menu Export
-        export_menu = tk.Menu(file_menu, tearoff=0)
-        export_menu.add_command(label="PDF...", command=self.menu_handler.generate_pdf)
-        file_menu.add_cascade(label="Export", menu=export_menu)
-
-        file_menu.add_separator()
-        file_menu.add_command(label="Close", command=self.menu_handler.file_close)
-        menubar.add_cascade(label="File", menu=file_menu)
-
-        # Menu Style
-        style_menu = tk.Menu(menubar, tearoff=0)
-        style_menu.add_command(label="Select Arranger...", command=self.menu_handler.select_arranger)
-        style_menu.add_command(label="Choose Style...", command=self.menu_handler.open_style_selector)
-        menubar.add_cascade(label="Style", menu=style_menu)
-
-        self.root.config(menu=menubar)
-        self.menubar = menubar  # Stocké pour pouvoir fermer les menus proprement
+        # Création de la barre de menu déléguée au gestionnaire
+        self.menubar = self.menu_handler.setup_menus(root)
 
         # CORRECTION ROBUSTE : Fermeture immédiate de tous les menus au moindre clic ou perte de focus
         def close_all_menus(event=None):
@@ -749,6 +714,10 @@ class HybridGridEditorApp:
                     if ms_path:
                         self.last_musescore_filepath = ms_path
 
+                    musescore_exe = config.get("musescore_path")
+                    if musescore_exe:
+                        self.musescore_path = musescore_exe
+
                     biab_path = config.get("last_biab_filepath")
                     if biab_path:
                         self.last_biab_filepath = biab_path
@@ -771,6 +740,7 @@ class HybridGridEditorApp:
         config = {
             "last_json_filepath": self.last_json_filepath,
             "last_musescore_filepath": self.last_musescore_filepath,
+            "musescore_path": self.musescore_path,
             "last_biab_filepath": self.last_biab_filepath,
             "last_pdf_filepath": self.last_pdf_filepath,
             "style_catalog_path": self.style_catalog_path,

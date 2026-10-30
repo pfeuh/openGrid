@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import json
 import shutil
 import subprocess
 from pathlib import Path
@@ -19,6 +20,7 @@ from chordGenerator import chordW3CtoGridChord
 
 BASE_DIR = Path(__file__).resolve().parent
 TEMP_DIR = BASE_DIR / "temp"
+CONFIG_FILE_PATH = BASE_DIR / ".grid_editor_config.json"
 
 TICKS_PER_QUARTER = 480  # Standard interne pour les ticks
 
@@ -83,16 +85,30 @@ def getGrid(file_path) -> Grid:
     musicxml_path = TEMP_DIR / "partition.musicxml"
     success = False
 
-    musescore_commands = [
-        "/mnt/Data1/Applications/musescore.AppImage",
+    # Chargement dynamique du chemin MuseScore depuis la configuration (.grid_editor_config.json)
+    custom_musescore_path = None
+    if CONFIG_FILE_PATH.exists():
+        try:
+            with open(CONFIG_FILE_PATH, "r", encoding="utf-8") as f:
+                config = json.load(f)
+                custom_musescore_path = config.get("musescore_path")
+        except Exception:
+            pass
+
+    musescore_commands = []
+    if custom_musescore_path:
+        musescore_commands.append(custom_musescore_path)
+
+    musescore_commands.extend([
         "musescore4",
         "musescore",
         "mscore"
-    ]
+    ])
 
     for cmd in musescore_commands:
         try:
-            if cmd.startswith("/") and not Path(cmd).exists():
+            # Si c'est un chemin absolu/relatif vers un fichier/AppImage, on vérifie son existence
+            if ("/" in cmd or "\\" in cmd) and not Path(cmd).exists():
                 continue
 
             subprocess.run(
