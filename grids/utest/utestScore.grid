@@ -1,0 +1,86 @@
+{
+    "header": {
+        "title": "utest score repeats & voltas",
+        "composer": "Pierre Faller",
+        "style": "StandardRock",
+        "category": "Pop & Rock",
+        "bpm": 120.0,
+        "timesig": "4/4"
+    },
+    "bars": [
+        {
+            "number": 1,
+            "timesig": "4/4",
+            "keysig": "0"
+        },
+        {
+            "number": 2
+        },
+        {
+            "number": 3
+        },
+        {
+            "number": 4,
+            "end_repeat": 4
+        },
+        {
+            "number": 5
+        },
+        {
+            "number": 6
+        },
+        {
+            "number": 7
+        },
+        {
+            "number": 8
+        },
+        {
+            "number": 9,
+            "start_repeat": true
+        },
+        {
+            "number": 10
+        },
+        {
+            "number": 11,
+            "volta": "1."
+        },
+        {
+            "number": 12,
+            "end_repeat": 2
+        },
+        {
+            "number": 13,
+            "volta": "2."
+        },
+        {
+            "number": 14,
+            "end_repeat": 2
+        },
+        {
+            "number": 15,
+            "volta": "3."
+        },
+        {
+            "number": 16
+        },
+        {
+            "number": 17,
+            "start_repeat": true
+        },
+        {
+            "number": 18,
+            "volta": "1.",
+            "end_repeat": 2
+        },
+        {
+            "number": 19,
+            "volta": "2.",
+            "end_repeat": 2
+        },
+        {
+            "number": 20
+        }
+    ]
+}

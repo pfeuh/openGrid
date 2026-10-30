@@ -1,0 +1,38 @@
+================================================================================
+PARSING STRUCTURE OF MUSESCORE (.mscx) FILES
+================================================================================
+
+1. WHAT WE LOOK FOR
+--------------------------------------------------------------------------------
+- Header Data: Title, composer, global key signature, tempo, and time signature.
+- Target Staff: The specific music staff containing chord symbols (<Harmony>).
+- Measure Data (Measure by Measure):
+  - Local time signatures, key changes, and tempo markers.
+  - Repeat markers (startRepeat, endRepeat) and Voltcas (1st/2nd endings).
+  - Chord symbols (root, quality/name, bass note) translated via TPC mappings.
+  - Notes and rests (Rest, Chord, Tuplet) to calculate absolute tick durations.
+  - Structural navigation markers and jumps (Da Capo, Dal Segno, Coda).
+
+
+2. WHERE IT IS LOCATED (XML Hierarchy)
+--------------------------------------------------------------------------------
+<museScore>
+ └── <Score>
+      ├── <Staff id="..."> (Collection of staves)
+      │    └── <Measure> (Sequential timeline blocks)
+      │         ├── <voice> (Polyphonic voices inside the measure)
+      │         │    ├── <Harmony> (Chord symbols and info)
+      │         │    └── <Chord> / <Rest> / <Tuplet> (Musical notes & durations)
+      │         ├── <TimeSig>, <KeySig>, <Tempo> (Local measure attributes)
+      │         └── <LayoutBreak> (Line or page breaks)
+      └── <Spanner type="Volta"> (Repeat endings spanning multiple measures)
+
+
+3. HOW WE FIND IT (Parsing Workflow)
+--------------------------------------------------------------------------------
+1. Unzip: Extract the .mscz file (standard ZIP archive) into a temporary folder.
+2. Load: Parse the extracted .mscx XML file using Python's xml.etree.ElementTree.
+3. Target: Use XPath expressions (e.g., findall(".//Staff")) to isolate the 
+   correct staff carrying the chord layer.
+4. Iterate: Loop sequentially through each <Measure>, extract its internal tags, 
+   calculate tick-based timelines, and map them into custom Python objects.

@@ -1,0 +1,55 @@
+# -*- coding: utf-8 -*-
+on ne peut être que dans un des trois états:
+    NORMAL
+    REPEAT
+    VOLTA
+
+on démarre état NORMAL
+
+pour chaque mesure
+    si NORMAL
+        si début_de_répétition
+            on crée une repeat_section on y met la mesure.
+            on passe en REPEAT
+        si fin_de_répétition
+            # cas de la partition sans début de reprise sur la première mesure
+            on crée une repeat_section on y met les mesures de la première à l'actuelle (incluant la mesure courante)
+            on ajoute la repeat_section à la flat_list autant de fois qu'il y a de répétition
+            on flush la repeat_section
+        si début_volta
+            # cas de la partition sans début de reprise sur la première mesure avant la volta
+            on crée une repeat_section on y met les mesures de la première à l'actuelle moins un
+            on ajoute la repeat_section à la flat_list autant de fois qu'il y a de répétition
+            on flush la repeat_section
+            on passe en VOLTA
+            on pushe la mesure
+        si pas de changement d'etat
+            on pushe la mesure
+
+    si REPEAT:
+        si début_de_répétition
+            on lève une erreur de structure de la partition
+        si fin_de_répétition
+            on met la mesure dans la repeat_section
+            on ajoute la repeat_section à la flat_list autant de fois qu'il y a de répétition
+            on flush la repeat_section
+            on passe en NORMAL
+        si début_volta
+            on ajoute la repeat_section à la flat_list (première lecture du bloc de reprise)
+            on flush la repeat_section
+            on passe en VOLTA
+            on pushe la mesure
+        si pas de changement d'etat
+            on met la mesure dans la repeat_section
+            on pushe la mesure
+     
+    si VOLTA:
+        si début_de_répétition
+            on flush la repeat_section
+            on passe en REPEAT
+        si fin_de_répétition
+            on passe en mode NORMAL
+        si début_volta
+            on lève une erreur de structure de la partition
+        si pas de changement d'etat
+            on pushe la mesure

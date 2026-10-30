@@ -1,0 +1,23 @@
+# Cache Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Dossiers temporaires
+temp/
+*/temp/
+
+# Fichiers zip (sauvegardes / archives instantanées)
+*.zip
+
+# Configuration pour grids/ : tout ignorer par défaut, sauf utest
+grids/*
+!grids/utest/
+!grids/utest/**
+
+# Configuration pour musescore/ : tout ignorer par défaut, sauf utest
+musescore/*
+!musescore/utest/
+!musescore/utest/**
+
+.grid_editor_config.json

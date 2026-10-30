@@ -1,0 +1,239 @@
+{
+    "header": {
+        "title": "Partition sans titre",
+        "composer": "Compositeur / Arrangeur",
+        "style": "StandardRock",
+        "category": "Pop & Rock",
+        "bpm": 120.0,
+        "timesig": "4/4"
+    },
+    "bars": [
+        {
+            "number": 1,
+            "timesig": "4/4",
+            "keysig": "0"
+        },
+        {
+            "number": 2
+        },
+        {
+            "number": 3
+        },
+        {
+            "number": 4,
+            "line_break": true
+        },
+        {
+            "number": 5,
+            "chords": [
+                "C"
+            ],
+            "start_repeat": true
+        },
+        {
+            "number": 6
+        },
+        {
+            "number": 7
+        },
+        {
+            "number": 8,
+            "line_break": true
+        },
+        {
+            "number": 9,
+            "chords": [
+                "F"
+            ]
+        },
+        {
+            "number": 10
+        },
+        {
+            "number": 11,
+            "chords": [
+                "C"
+            ]
+        },
+        {
+            "number": 12,
+            "line_break": true
+        },
+        {
+            "number": 13,
+            "chords": [
+                "G"
+            ]
+        },
+        {
+            "number": 14,
+            "chords": [
+                "F"
+            ]
+        },
+        {
+            "number": 15,
+            "chords": [
+                "C"
+            ]
+        },
+        {
+            "number": 16,
+            "chords": [
+                "G"
+            ],
+            "line_break": true,
+            "end_repeat": 2
+        },
+        {
+            "number": 17,
+            "chords": [
+                "Am"
+            ]
+        },
+        {
+            "number": 18
+        },
+        {
+            "number": 19
+        },
+        {
+            "number": 20,
+            "line_break": true
+        },
+        {
+            "number": 21,
+            "chords": [
+                "Dm"
+            ]
+        },
+        {
+            "number": 22
+        },
+        {
+            "number": 23,
+            "chords": [
+                "Am"
+            ]
+        },
+        {
+            "number": 24,
+            "line_break": true
+        },
+        {
+            "number": 25,
+            "chords": [
+                "Em"
+            ]
+        },
+        {
+            "number": 26,
+            "chords": [
+                "Dm"
+            ]
+        },
+        {
+            "number": 27,
+            "chords": [
+                "G",
+                "G/F@5.0"
+            ]
+        },
+        {
+            "number": 28,
+            "chords": [
+                "G/E",
+                "G/D@5.0"
+            ],
+            "line_break": true
+        },
+        {
+            "number": 29,
+            "chords": [
+                "C"
+            ],
+            "start_repeat": true
+        },
+        {
+            "number": 30
+        },
+        {
+            "number": 31
+        },
+        {
+            "number": 32,
+            "line_break": true
+        },
+        {
+            "number": 33,
+            "chords": [
+                "F"
+            ]
+        },
+        {
+            "number": 34
+        },
+        {
+            "number": 35,
+            "chords": [
+                "C"
+            ]
+        },
+        {
+            "number": 36,
+            "line_break": true
+        },
+        {
+            "number": 37,
+            "chords": [
+                "G"
+            ]
+        },
+        {
+            "number": 38,
+            "chords": [
+                "F"
+            ]
+        },
+        {
+            "number": 39,
+            "chords": [
+                "C"
+            ]
+        },
+        {
+            "number": 40,
+            "chords": [
+                "G"
+            ],
+            "line_break": true,
+            "end_repeat": 2
+        },
+        {
+            "number": 41,
+            "chords": [
+                "C",
+                "F7@5.0"
+            ]
+        },
+        {
+            "number": 42,
+            "chords": [
+                "C"
+            ]
+        },
+        {
+            "number": 43,
+            "chords": [
+                "C",
+                "F7@5.0"
+            ]
+        },
+        {
+            "number": 44,
+            "chords": [
+                "C"
+            ]
+        }
+    ]
+}

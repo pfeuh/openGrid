@@ -1,0 +1,77 @@
+{
+    "header": {
+        "title": "Partition sans titre",
+        "composer": "Compositeur / Arrangeur",
+        "style": "StandardRock",
+        "category": "Pop & Rock",
+        "bpm": 120.0,
+        "timesig": "4/4"
+    },
+    "bars": [
+        {
+            "number": 1,
+            "chords": [
+                "C",
+                "D@2.0",
+                "E@3.0",
+                "F@4.0"
+            ],
+            "timesig": "4/4",
+            "keysig": "0"
+        },
+        {
+            "number": 2,
+            "chords": [
+                "G",
+                "G#dim@2.0",
+                "Am@3.0"
+            ],
+            "keysig": "0"
+        },
+        {
+            "number": 3,
+            "chords": [
+                "A"
+            ],
+            "timesig": "3/4",
+            "keysig": "0"
+        },
+        {
+            "number": 4,
+            "chords": [
+                "C/E"
+            ],
+            "keysig": "0"
+        },
+        {
+            "number": 5,
+            "chords": [
+                "D7"
+            ],
+            "keysig": "0"
+        },
+        {
+            "number": 6,
+            "chords": [
+                "G74",
+                "G7@2.5"
+            ],
+            "keysig": "0"
+        },
+        {
+            "number": 7,
+            "chords": [
+                "Ab",
+                "Bb@3.0"
+            ],
+            "keysig": "0"
+        },
+        {
+            "number": 8,
+            "chords": [
+                "C"
+            ],
+            "keysig": "0"
+        }
+    ]
+}

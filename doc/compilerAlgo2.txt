@@ -1,0 +1,40 @@
+# -*- coding: utf-8 -*-
+
+TANT QUE mesure_courante <= MESURE_MAX FAIRE :
+
+    1. INCREMENTER le nombre de passages pour 'mesure_courante' dans 'compteur_passages'
+       passage_actuel = compteur_passages[mesure_courante]
+
+    2. GESTION DES VOLTAS (Boîtes de fin 1, 2...) :
+       SI 'mesure_courante' est répertoriée dans 'VOLTAS' ALORS :
+           num_boite = VOLTAS[mesure_courante]
+           
+           # Si le numéro de la boîte ne correspond pas à notre nombre de passages, on doit la sauter
+           SI num_boite n'est pas égal à passage_actuel ALORS :
+               TANT QUE 'mesure_courante' est dans 'VOLTAS' ET que son num_boite n'est pas égal à passage_actuel FAIRE :
+                   mesure_courante = mesure_courante + 1
+               
+               # Si en sautant la boîte on dépasse la fin du morceau, on arrête la lecture
+               SI mesure_courante > MESURE_MAX ALORS :
+                   INTERROMPRE LA BOUCLE TANT QUE
+
+    3. GESTION DU DÉBUT DE REPRISE :
+       SI 'mesure_courante' est dans 'START_REPEATS' ALORS :
+           derniere_reprise_debut = mesure_courante
+
+    4. ENREGISTRER LA MESURE :
+       Ajouter 'mesure_courante' à la liste 'sequence_jouee'
+
+    5. GESTION DE LA FIN DE REPRISE :
+       SI 'mesure_courante' est dans 'END_REPEATS' ALORS :
+           # Si c'est la première fois qu'on atteint cette fin de reprise, on retourne en arrière
+           SI passage_actuel == 1 ALORS :
+               mesure_courante = derniere_reprise_debut
+               CONTINUER au début de la boucle Tant Que (sans faire l'incrémentation normale)
+
+    6. AVANCEMENT NORMAL :
+       mesure_courante = mesure_courante + 1
+
+FIN TANT QUE
+
+RETOURNER sequence_jouee

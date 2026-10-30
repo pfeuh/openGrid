@@ -1,0 +1,5 @@
+rtmidi
+tkinterdnd2
+reportlab
+pyRealParser
+fonttools

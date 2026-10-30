@@ -1,0 +1,292 @@
+{
+    "header": {
+        "title": "aNightInTunisia",
+        "style": "StandardRock",
+        "category": "Pop & Rock",
+        "bpm": 120.0,
+        "timesig": "4/4"
+    },
+    "bars": [
+        {
+            "number": 1,
+            "timesig": "4/4",
+            "keysig": "-1"
+        },
+        {
+            "number": 2,
+            "keysig": "0"
+        },
+        {
+            "number": 3,
+            "keysig": "0"
+        },
+        {
+            "number": 4,
+            "keysig": "0",
+            "line_break": true
+        },
+        {
+            "number": 5,
+            "chords": [
+                "Eb7"
+            ],
+            "markers": [
+                "MG_SEGNO"
+            ],
+            "sections": [
+                "A"
+            ],
+            "start_repeat": true,
+            "keysig": "0"
+        },
+        {
+            "number": 6,
+            "chords": [
+                "Dm6"
+            ],
+            "keysig": "0"
+        },
+        {
+            "number": 7,
+            "chords": [
+                "Eb7"
+            ],
+            "keysig": "0"
+        },
+        {
+            "number": 8,
+            "chords": [
+                "Dm6"
+            ],
+            "keysig": "0",
+            "line_break": true
+        },
+        {
+            "number": 9,
+            "chords": [
+                "Eb7"
+            ],
+            "keysig": "0"
+        },
+        {
+            "number": 10,
+            "chords": [
+                "Dm6"
+            ],
+            "keysig": "0"
+        },
+        {
+            "number": 11,
+            "chords": [
+                "Em7b5",
+                "A7b5@4.2"
+            ],
+            "keysig": "0"
+        },
+        {
+            "number": 12,
+            "chords": [
+                "Dm6"
+            ],
+            "volta": "1.",
+            "end_repeat": 2,
+            "keysig": "0"
+        },
+        {
+            "number": 13,
+            "chords": [
+                "Dm6"
+            ],
+            "volta": "2.",
+            "keysig": "0",
+            "line_break": true
+        },
+        {
+            "number": 14,
+            "chords": [
+                "Am7b5"
+            ],
+            "sections": [
+                "B"
+            ],
+            "keysig": "0"
+        },
+        {
+            "number": 15,
+            "chords": [
+                "D7b9"
+            ],
+            "keysig": "0"
+        },
+        {
+            "number": 16,
+            "chords": [
+                "Gm6"
+            ],
+            "keysig": "0"
+        },
+        {
+            "number": 17,
+            "chords": [
+                "C7@3.0"
+            ],
+            "keysig": "0",
+            "line_break": true
+        },
+        {
+            "number": 18,
+            "chords": [
+                "Gm7b5"
+            ],
+            "keysig": "0"
+        },
+        {
+            "number": 19,
+            "chords": [
+                "C7b9"
+            ],
+            "keysig": "0"
+        },
+        {
+            "number": 20,
+            "chords": [
+                "F6"
+            ],
+            "keysig": "0"
+        },
+        {
+            "number": 21,
+            "chords": [
+                "Em7b5",
+                "A7b5@3.0"
+            ],
+            "end_repeat": 2,
+            "keysig": "0"
+        },
+        {
+            "number": 22,
+            "chords": [
+                "Dm6"
+            ],
+            "markers": [
+                "MG_FINE"
+            ],
+            "volta": "3.",
+            "keysig": "0",
+            "line_break": true
+        },
+        {
+            "number": 23,
+            "chords": [
+                "Em7b5",
+                "A7"
+            ],
+            "sections": [
+                "Interlude"
+            ],
+            "keysig": "0"
+        },
+        {
+            "number": 24,
+            "keysig": "0"
+        },
+        {
+            "number": 25,
+            "chords": [
+                "Eb7#11",
+                "A5+"
+            ],
+            "keysig": "0"
+        },
+        {
+            "number": 26,
+            "keysig": "0",
+            "line_break": true
+        },
+        {
+            "number": 27,
+            "chords": [
+                "Dm",
+                "Dm"
+            ],
+            "keysig": "0"
+        },
+        {
+            "number": 28,
+            "keysig": "0"
+        },
+        {
+            "number": 29,
+            "chords": [
+                "G7#11",
+                "A5+"
+            ],
+            "keysig": "0"
+        },
+        {
+            "number": 30,
+            "keysig": "0",
+            "line_break": true
+        },
+        {
+            "number": 31,
+            "chords": [
+                "Gm7M",
+                "D"
+            ],
+            "keysig": "0"
+        },
+        {
+            "number": 32,
+            "chords": [
+                "Gm7",
+                "Dm"
+            ],
+            "keysig": "0"
+        },
+        {
+            "number": 33,
+            "chords": [
+                "Gb7#9",
+                "A"
+            ],
+            "keysig": "0"
+        },
+        {
+            "number": 34,
+            "chords": [
+                "F7M@4.5"
+            ],
+            "keysig": "0",
+            "line_break": true
+        },
+        {
+            "number": 35,
+            "keysig": "0"
+        },
+        {
+            "number": 36,
+            "keysig": "0"
+        },
+        {
+            "number": 37,
+            "chords": [
+                "Em7b5"
+            ],
+            "keysig": "0"
+        },
+        {
+            "number": 38,
+            "chords": [
+                "A7b9"
+            ],
+            "markers": [
+                "MG_FINE"
+            ],
+            "jumps": [
+                "MG_DS_AL_FINE"
+            ],
+            "keysig": "0"
+        }
+    ]
+}

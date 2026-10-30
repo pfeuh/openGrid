@@ -1,0 +1,63 @@
+1. Initialiser :
+   - pos = 0 (première mesure)
+   - sequence_plate = []
+   - repeat_start_pos = 0
+   - current_pass = 1
+   - max_passes = 1
+   - is_segno_mode = False
+   - has_jumped_to_coda = False
+
+2. Tant que pos < nombre_total_de_mesures :
+   - Récupérer la mesure `m` à l'indice `pos`.
+
+   ----------------------------------------------------
+   A. GESTION DES VOLTAS (Fins alternatives)
+   ----------------------------------------------------
+   - Si la mesure possède une volta (ex: "1." ou "2.") :
+     - Si la volta n'est pas compatible avec `current_pass` :
+       - (Optionnel) Si on est sur une fin de reprise et qu'on doit sauter la 1 pour aller à la 2... 
+       - Avancer `pos` et continuer (ignorer les accords de cette mesure).
+
+   ----------------------------------------------------
+   B. EXTRACTION DES ACCORDS DE LA MESURE
+   ----------------------------------------------------
+   - Découper la mesure en accords selon sa signature rythmique.
+   - Ajouter ces accords (notes + durée en temps) dans `sequence_plate`.
+
+   ----------------------------------------------------
+   C. ANALYSE DES MARQUEURS ET SAUTS (JUMPS / MARKERS)
+   ----------------------------------------------------
+   - SI la mesure contient un JUMP (ex: `MG_GOTO_SIGNO` / D.S.) ET qu'on n'est pas déjà en train de rejouer depuis le Segno :
+     - Mettre `is_segno_mode = True`
+     - Mettre `pos = index_du_segno`
+     - Continuer la boucle (saut immédiat).
+
+   - SI la mesure contient un `MG_TO_CODA` :
+     - SI `is_segno_mode == True` (on revient du Segno et on cherche la sortie vers la Coda) :
+       - Mettre `pos = index_de_la_coda`
+       - Continuer la boucle.
+
+   - SI la mesure contient un `MG_FINE` :
+     - SI `is_segno_mode == True` (dans le cas d'un D.S. al Fine) :
+       - **ARRÊT DE LA LECTURE** (Sortie de la boucle `while`).
+
+   ----------------------------------------------------
+   D. GESTION DES REPRISES STANDARD (Start/End Repeat)
+   ----------------------------------------------------
+   - Si la mesure a `start_repeat = True` :
+     - Mémoriser `repeat_start_pos = pos` (si ce n'est pas déjà fait pour cette boucle).
+
+   - Si la mesure a `end_repeat = N` (ex: 2 fois) :
+     - Si `current_pass < N` :
+       - Incrémenter `current_pass`
+       - Mettre `pos = repeat_start_pos` (on retourne au début de la reprise).
+       - Continuer la boucle.
+     - Sinon (on a fini toutes les passes de cette reprise) :
+       - Remettre `current_pass = 1`
+       - Avancer normalement `pos += 1`.
+
+   ----------------------------------------------------
+   E. AVANCEMENT LINÉAIRE CLASSIQUE
+   ----------------------------------------------------
+   - Si aucun saut ni reprise n'a modifié `pos` :
+     - `pos += 1`
