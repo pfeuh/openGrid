@@ -1,0 +1,11 @@
+# -*- coding: utf-8 -*-
+
+nw  segment, volta_num+dot signo
+n   text (pas encore implémenté)
+ne  to coda, fine
+w   début de répétition, signature rythmique
+c   accords
+e   fin de répétition
+sw  numero de mesure
+s   rien pour le moment
+se  rien pout le moment

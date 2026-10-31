@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/init/python
 # -*- coding: utf-8 -*-
 
 import json
@@ -42,11 +42,11 @@ try:
                     pattern_str = pattern.replace(' ', '|')
                 new_filetypes.append((name, pattern_str))
             kwargs['filetypes'] = new_filetypes
-        
+         
         # Désactive l'affichage des fichiers récents pour éviter le bug des index numériques sous Linux
         if 'show_recent' in tk_askopenfilename.__code__.co_varnames:
             kwargs['show_recent'] = False
-            
+             
         return kwargs
 
     def custom_askopenfilename(**kwargs):
@@ -103,6 +103,7 @@ class HybridGridEditorApp:
         self.musescore_path = None
         self.arranger_process = None
         self.is_modified = False
+        self.edited_bar = None  # Suivi de la mesure en cours d'édition
 
         self.load_config()
 
@@ -160,7 +161,7 @@ class HybridGridEditorApp:
         ttk.Label(header_frame, text="Style :").grid(
             row=1, column=0, sticky="w", padx=5, pady=5
         )
-        
+         
         style_display_frame = ttk.Frame(header_frame)
         style_display_frame.grid(row=1, column=1, sticky="w", padx=5, pady=5)
 
@@ -225,7 +226,7 @@ class HybridGridEditorApp:
         midi_sub_frame.pack(side="left", fill="x", expand=True, padx=5, pady=5)
 
         ttk.Label(midi_sub_frame, text="Port MIDI :").pack(side="left", padx=2)
-        
+         
         self.midi_ports_list = self.get_available_midi_ports()
         self.midi_port_combo = ttk.Combobox(
             midi_sub_frame,
@@ -264,7 +265,7 @@ class HybridGridEditorApp:
             command=self.toggle_playback
         )
         self.btn_toggle_play.pack(side="right", padx=5, pady=5)
-        
+         
         self.default_btn_bg = self.btn_toggle_play.cget("bg")
 
         # --- CONTENEUR ÉDITEUR VECTORIEL ---
@@ -304,14 +305,14 @@ class HybridGridEditorApp:
     def process_ireal_pro_url(self, url):
         """Appelle irealproToGrid et charge directement l'objet Grid retourné."""
         grid_obj = irealproToGrid(url)
-        
+         
         if not grid_obj:
             messagebox.showwarning("Attention", "La conversion n'a retourné aucune grille valide.")
             return
 
         self.current_filepath = None
         self.vectorial_editor.load_grid(grid_obj)
-        
+         
         if hasattr(grid_obj, 'header') and grid_obj.header:
             if hasattr(grid_obj.header, 'title') and grid_obj.header.title:
                 self.title_entry.delete(0, tk.END)
@@ -359,7 +360,7 @@ class HybridGridEditorApp:
         if file_path:
             self.last_musescore_filepath = file_path
             self.save_config()
-            
+             
             # Application du sablier pendant le traitement MuseScore
             self.root.config(cursor="watch")
             self.root.update_idletasks()
@@ -440,7 +441,7 @@ class HybridGridEditorApp:
                 return
 
         ext = os.path.splitext(file_path)[1].lower()
-        
+         
         try:
             if ext == '.grid':
                 self.last_json_filepath = file_path
@@ -449,7 +450,7 @@ class HybridGridEditorApp:
             elif ext in ['.mscz', '.mscx']:
                 self.last_musescore_filepath = file_path
                 self.save_config()
-                
+                 
                 # Curseur d'attente pour MuseScore via drop
                 self.root.config(cursor="watch")
                 self.root.update_idletasks()
@@ -462,7 +463,7 @@ class HybridGridEditorApp:
                         messagebox.showinfo("Info", f"Fichier MuseScore détecté : {os.path.basename(file_path)}")
                 finally:
                     self.root.config(cursor="")
-                    
+                     
             elif ext in ['.sgu', '.mgu', '.zip']:
                 self.last_biab_filepath = file_path
                 self.save_config()
@@ -479,7 +480,7 @@ class HybridGridEditorApp:
         try:
             with open(self.style_catalog_path, "r", encoding="utf-8") as f:
                 catalog = json.load(f)
-            
+             
             if isinstance(catalog, dict):
                 for cat, styles in catalog.items():
                     if isinstance(styles, dict):
@@ -518,54 +519,35 @@ class HybridGridEditorApp:
             if hasattr(self, 'bpm_entry') and self.bpm_entry:
                 self.bpm_entry.delete(0, tk.END)
                 self.bpm_entry.insert(0, str(bpm))
-        
+         
         self.mark_as_modified()
 
     def _generate_flatenized_json(self):
-        """Méthode interne pour générer et sauvegarder temp/flatenized.json"""
+        """Méthode interne pour générer et sauvegarder temp/flatenized.json via un objet Grid strict."""
         if self.current_filepath and not self.is_modified and os.path.isfile(self.current_filepath) and self.current_filepath.endswith(".grid"):
-            with open(self.current_filepath, "r", encoding="utf-8") as f:
-                grid_data = json.load(f)
+            grid_obj = Grid.load(self.current_filepath)
         else:
             grid_obj = self.vectorial_editor.grid
             if not grid_obj:
-                grid_data = {}
-            else:
-                grid_data = grid_obj.to_dict() if hasattr(grid_obj, "to_dict") else {}
-            
-        if not grid_data or KEY_BARS not in grid_data:
-            bars_data = [bar.to_dict() if hasattr(bar, "to_dict") else {KEY_NUMBER: bar.number, KEY_CHORDS: bar.chords} for bar in self.vectorial_editor.grid.bars] if self.vectorial_editor.grid else []
-            grid_data = {
-                KEY_BARS: bars_data
-            }
-
-        if KEY_HEADER not in grid_data or not isinstance(grid_data[KEY_HEADER], dict):
-            grid_data[KEY_HEADER] = {}
+                grid_obj = Grid(header=Header())
 
         try:
             current_bpm = float(self.bpm_entry.get())
         except ValueError:
             current_bpm = 110.0
 
-        grid_data[KEY_HEADER][KEY_TITLE] = self.title_entry.get()
-        grid_data[KEY_HEADER][KEY_COMPOSER] = self.composer_entry.get()
-        grid_data[KEY_HEADER][KEY_BPM] = current_bpm
-        grid_data[KEY_HEADER][KEY_TIMESIG] = self.timesig_combo.get()
-        grid_data[KEY_HEADER][KEY_STYLE] = self.style_name_var.get()
+        grid_obj.header.title = self.title_entry.get()
+        grid_obj.header.composer = self.composer_entry.get()
+        grid_obj.header.bpm = current_bpm
+        grid_obj.header.timesig = self.timesig_combo.get()
+        grid_obj.header.style = self.style_name_var.get()
 
-        flat_bars = compileAndFlatenizeGrid(grid_data)
-        
+        flat_grid_obj = compileAndFlatenizeGrid(grid_obj)
+         
         os.makedirs("temp", exist_ok=True)
         output_path = os.path.join("temp", "flatenized.json")
-        
-        flat_grid_data = {
-            KEY_HEADER: grid_data.get(KEY_HEADER, {}),
-            KEY_BARS: flat_bars
-        }
-        
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(flat_grid_data, f, ensure_ascii=False, indent=4)
-            
+        flat_grid_obj.save(output_path)
+         
         return output_path
 
     def compile_grid_action(self):
@@ -576,10 +558,9 @@ class HybridGridEditorApp:
                 messagebox.showwarning("Attention", "Aucune grille chargée à compiler.")
                 return
 
-            with open(output_path, "r", encoding="utf-8") as f:
-                flat_grid_data = json.load(f)
-            
-            sequence = [bar.get(KEY_NUMBER) for bar in flat_grid_data.get(KEY_BARS, [])]
+            flat_grid_obj = Grid.load(output_path)
+            sequence = [bar.number for bar in flat_grid_obj.bars]
+             
             print(f"\n--- COMPILATION & APLATISSEMENT RÉUSSIS ({len(sequence)} mesures) ---")
             print(f"Fichier sauvegardé : {output_path}")
 
@@ -669,7 +650,7 @@ class HybridGridEditorApp:
             if self.arranger_process.poll() is not None:
                 self.arranger_process = None
                 self.btn_toggle_play.config(text="▶ Play", bg=self.default_btn_bg, fg="black")
-        
+         
         self.root.after(500, self.check_arranger_status)
 
     def mark_as_modified(self):
@@ -681,8 +662,62 @@ class HybridGridEditorApp:
         self.update_title()
 
     def edit_measure_popup(self, bar_obj):
-        """Délègue l'affichage du dialogue d'édition au module measureEditor."""
-        open_measure_editor(self.root, bar_obj, on_save_callback=self._on_measure_saved)
+        """Délègue l'affichage du dialogue d'édition au module measureEditor avec support de la navigation par index."""
+        if not self.vectorial_editor.grid or not self.vectorial_editor.grid.bars:
+            return
+
+        bars_list = self.vectorial_editor.grid.bars
+        try:
+            current_index = bars_list.index(bar_obj)
+        except ValueError:
+            return
+
+        # Restaure l'ancienne couleur si besoin
+        if self.edited_bar and self.edited_bar != bar_obj:
+            self.vectorial_editor.set_bar_background(self.edited_bar, "")
+
+        self.edited_bar = bar_obj
+        self.vectorial_editor.set_bar_background(bar_obj, "#FFF2CC")
+
+        def on_save():
+            """Sauvegarde et rafraîchit le canvas"""
+            self._on_measure_saved()
+
+        def on_close():
+            """Nettoie la surbrillance à la fermeture définitive"""
+            if self.edited_bar:
+                self.vectorial_editor.set_bar_background(self.edited_bar, "")
+                self.edited_bar = None
+            self._on_measure_saved()
+
+        def on_navigate(current_bar, direction):
+            nonlocal current_index
+            if not bars_list:
+                return None
+            
+            # 1. Nettoie l'ancienne surbrillance sur le canvas
+            self.vectorial_editor.set_bar_background(bars_list[current_index], "")
+
+            # 2. Calcule le nouvel index de manière circulaire
+            current_index = (current_index + direction) % len(bars_list)
+            next_bar = bars_list[current_index]
+
+            # 3. Met à jour la référence active et applique la surbrillance jaune
+            self.edited_bar = next_bar
+            self.vectorial_editor.set_bar_background(next_bar, "#FFF2CC")
+            
+            # 4. Rafraîchit l'affichage de la grille
+            self._on_measure_saved()
+
+            return next_bar
+
+        open_measure_editor(
+            self.root, 
+            bar_obj, 
+            on_save_callback=on_save, 
+            on_close_callback=on_close,
+            on_navigate_callback=on_navigate
+        )
 
     def _on_measure_saved(self):
         """Callback déclenché lorsque la mesure est modifiée et validée."""

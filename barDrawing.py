@@ -27,7 +27,7 @@ COLOR_GLYPH_MAP = {
 }
 
 class BarDrawing:
-    def __init__(self, x, y, w, h, driver, no_rect=False, bar_data=None):
+    def __init__(self, x, y, w, h, driver, no_rect=False, bar_data=None, bg_color=None):
         self.__x = x
         self.__y = y
         self.__w = w
@@ -43,10 +43,20 @@ class BarDrawing:
         }
         
         if self.__driver is not None and not no_rect:
-            self.rect_id = self.__driver.draw_rect(x, y, w, h, stroke=1, fill=1, line_width=1.0)
+            # On passe fill=bg_color si fourni, sinon style par défaut
+            fill_val = bg_color if bg_color is not None else 1
+            self.rect_id = self.__driver.draw_rect(x, y, w, h, stroke=1, fill=fill_val, line_width=1.0)
 
         if bar_data:
             self.render_bar_data(bar_data)
+
+    def set_background_color(self, color):
+        """Modifie la couleur de fond du rectangle de la mesure."""
+        if self.__driver is not None and self.rect_id is not None:
+            if hasattr(self.__driver, 'set_rect_color'):
+                self.__driver.set_rect_color(self.rect_id, fill=color)
+            elif hasattr(self.__driver, 'itemconfigure'): # Compatibilité directe Canvas Tkinter si besoin
+                self.__driver.itemconfigure(self.rect_id, fill=color)
 
     def render_bar_data(self, bar):
         if not bar:
@@ -182,24 +192,45 @@ class BarDrawing:
         self.__cursors['above_right'] += total_width + 4
 
     def draw_timesig(self, timesig):
-        if self.__driver is None or not timesig:
-            return
+        base_x = self.__x + 2
+        offset = self.__cursors.get('w', 0)
+        tx = base_x + offset
+        
+        is_tkinter = getattr(self.__driver, 'is_top_origin', False)
 
-        tx = self.__x + 8
         if timesig in TIME_SIGNATURE_GLYPHS:
             glyph = TIME_SIGNATURE_GLYPHS[timesig]
             size = 20  
-            ty = self.__y + (self.__h - (size * 0.7)) / 2.0 - 2
+            if is_tkinter:
+                size_rep = int(self.__h * 0.45)
+                text_height = size_rep * 0.7
+                ty = self.__y + (self.__h / 2.0) + (text_height / 2.0)
+            else:
+                ty = self.__y + (self.__h - (size * 0.7)) / 2.0 - 2
             self.__driver.draw_text(tx, ty, glyph, "Bravura", size, anchor="sw")
+            glyph_width = self.__driver.string_width(glyph, "Bravura", size)
+            self.__cursors['w'] = offset + glyph_width + 4
         else:
             parts = timesig.split('/')
             if len(parts) == 2:
                 num, den = parts[0], parts[1]
                 sub_size = 11
-                center_y = self.__y + self.__h / 2.0
                 
-                self.__driver.draw_text(tx, center_y - 2, num, "text_fnt", sub_size, anchor="sw")
-                self.__driver.draw_text(tx, center_y + sub_size - 2, den, "text_fnt", sub_size, anchor="sw")
+                if is_tkinter:
+                    size_rep = int(self.__h * 0.45)
+                    text_height = size_rep * 0.7
+                    base_ty = self.__y + (self.__h / 2.0) + (text_height / 2.0) - sub_size
+                    self.__driver.draw_text(tx, base_ty, num, "text_fnt", sub_size, anchor="sw")
+                    self.__driver.draw_text(tx, base_ty + sub_size, den, "text_fnt", sub_size, anchor="sw")
+                else:
+                    center_y = self.__y + self.__h / 2.0
+                    self.__driver.draw_text(tx, center_y - 2, num, "text_fnt", sub_size, anchor="sw")
+                    self.__driver.draw_text(tx, center_y + sub_size - 2, den, "text_fnt", sub_size, anchor="sw")
+                
+                num_w = self.__driver.string_width(num, "text_fnt", sub_size)
+                den_w = self.__driver.string_width(den, "text_fnt", sub_size)
+                max_w = max(num_w, den_w)
+                self.__cursors['w'] = offset + max_w + 4
             else:
                 self.write(timesig, "text_fnt", 11, "w")
 
@@ -247,7 +278,11 @@ class BarDrawing:
             ty = self.__y + (self.__h - text_height) / 2.0 - 4
 
         if side == "left":
-            tx = self.__x - 1  
+            base_x = self.__x + 2
+            offset = self.__cursors.get('w', 0)
+            tx = base_x + offset
+            text_width = self.__driver.string_width(content, font, size)
+            self.__cursors['w'] = offset + text_width + 4
         else:
             text_width = self.__driver.string_width(content, font, size)
             tx = self.__x + self.__w - text_width + 1  

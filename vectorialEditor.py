@@ -15,8 +15,9 @@ class VectorialGridCanvas:
 
     def __init__(self, parent, on_measure_edit_callback=None):
         self.parent = parent
-        self.on_measure_edit_callback = on_measure_edit_callback
+        self.on_measure_edit_callback = on_measure_edit_callback or self.edit_measure
         self.grid = None
+        self.edited_bar = None  # Mémorisation de la mesure active pour le redessin persistant
 
         self.frame = tk.Frame(parent)
         self.frame.pack(fill="both", expand=True)
@@ -40,7 +41,20 @@ class VectorialGridCanvas:
 
     def load_grid(self, grid_obj):
         self.grid = grid_obj
+        self.edited_bar = None
         self.redraw()
+
+    def set_bar_background(self, bar_obj, color):
+        """Modifie la couleur de fond du rectangle associé à une mesure (Bar) sur le canvas et mémorise l'état."""
+        self.edited_bar = bar_obj if color else None
+        for rect_id, bar in self.measure_rects.items():
+            if bar is bar_obj:
+                try:
+                    fill_val = color if color else ""
+                    self.canvas.itemconfigure(rect_id, fill=fill_val)
+                except Exception:
+                    pass
+                break
 
     def redraw(self):
         self.canvas.delete("all")
@@ -55,7 +69,6 @@ class VectorialGridCanvas:
 
         self.driver.draw_text(MARGIN_LEFT, MARGIN_TOP + 15, title, "default_fnt", 16, anchor="sw")
         if composer:
-            # Décalage de 9 unités vers la gauche pour un alignement parfait sous Tkinter
             right_x = PAGE_WIDTH - MARGIN_LEFT - 9
             comp_width = self.driver.string_width(composer, "default_fnt", 10)
             self.driver.draw_text(right_x - comp_width, MARGIN_TOP + 15, composer, "default_fnt", 10, anchor="sw")
@@ -72,6 +85,12 @@ class VectorialGridCanvas:
             rect_id = bar_drawer.rect_id
             if rect_id:
                 self.measure_rects[rect_id] = bar
+                # Restauration automatique du fond jaune si c'est la mesure active lors d'un redraw
+                if bar is self.edited_bar:
+                    try:
+                        self.canvas.itemconfigure(rect_id, fill="#FFF2CC")
+                    except Exception:
+                        pass
 
             if col == 0:
                 num_y = y + CELL_H - 4
@@ -97,6 +116,11 @@ class VectorialGridCanvas:
 
         total_height = start_y + total_rows * (CELL_H + SPACING_Y) + 50
         self.canvas.config(scrollregion=(0, 0, PAGE_WIDTH, total_height))
+
+    def edit_measure(self, bar_obj):
+        """Méthode par défaut si aucun callback externe n'est fourni."""
+        if self.on_measure_edit_callback and self.on_measure_edit_callback != self.edit_measure:
+            self.on_measure_edit_callback(bar_obj)
 
     def on_mouse_wheel(self, event):
         self.canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")

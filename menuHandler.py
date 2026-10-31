@@ -227,37 +227,23 @@ class MenuHandler:
 
     def _load_from_path(self, filepath, show_popup=True):
         try:
-            with open(filepath, "r", encoding="utf-8") as f:
-                data = json.load(f)
+            # Utilisation de Grid.load() centralisé
+            grid_obj = Grid.load(filepath)
+            header = grid_obj.header
 
-            header = data.get("header", {})
             self.app.title_entry.delete(0, tk.END)
-            self.app.title_entry.insert(0, header.get("title", "Ma Grille"))
+            self.app.title_entry.insert(0, header.title)
             self.app.composer_entry.delete(0, tk.END)
-            self.app.composer_entry.insert(0, header.get("composer", ""))
+            self.app.composer_entry.insert(0, header.composer)
             
-            style = header.get("style", "StandardRock")
+            style = header.style or "StandardRock"
             self.app.style_name_var.set(style)
-            cat = header.get("category", self.find_category_for_style(style))
+            cat = header.category or self.find_category_for_style(style)
             self.app.style_category_var.set(f"[{cat}]" if cat else "")
 
             self.app.bpm_entry.delete(0, tk.END)
-            self.app.bpm_entry.insert(0, str(header.get("bpm", 110.0)))
-            self.app.timesig_combo.set(header.get("timesig", "4/4"))
-
-            bars = data.get("bars", [])
-            grid_obj = Grid(header=Header(**header))
-            
-            for b_data in bars:
-                bar = Bar(number=b_data.get("number", 1))
-                bar.chords = b_data.get("chords", [])
-                bar.start_repeat = b_data.get("start_repeat", False)
-                bar.end_repeat = b_data.get("end_repeat", 0)
-                bar.volta = b_data.get("volta", "")
-                bar.markers = b_data.get("markers", [])
-                bar.sections = b_data.get("sections", [])
-                bar.jumps = b_data.get("jumps", [])
-                grid_obj.add_bar(bar)
+            self.app.bpm_entry.insert(0, str(header.bpm))
+            self.app.timesig_combo.set(header.timesig)
 
             self.app.vectorial_editor.load_grid(grid_obj)
 
@@ -267,7 +253,7 @@ class MenuHandler:
             self.app.set_modified(False)
 
             if show_popup:
-                messagebox.showinfo("Succès", f"Grille chargée avec succès !\nTotal : {len(bars)} mesures.")
+                messagebox.showinfo("Succès", f"Grille chargée avec succès !\nTotal : {len(grid_obj.bars)} mesures.")
         except Exception as e:
             messagebox.showerror("Erreur", f"Impossible de charger le fichier :\n{e}")
 
@@ -280,7 +266,11 @@ class MenuHandler:
         cat_raw = self.app.style_category_var.get().strip()
         cat_clean = cat_raw.strip("[]")
 
-        header = Header(
+        grid_obj = self.app.vectorial_editor.grid
+        if not grid_obj:
+            grid_obj = Grid(header=Header())
+
+        grid_obj.header = Header(
             title=self.app.title_entry.get().strip(),
             composer=self.app.composer_entry.get().strip(),
             style=self.app.style_name_var.get().strip(),
@@ -288,13 +278,11 @@ class MenuHandler:
             bpm=bpm_val,
             timesig=self.app.timesig_combo.get().strip()
         )
-        
-        grid_data = self.app.vectorial_editor.grid.to_dict()
-        grid_data["header"] = header.to_dict()
 
         try:
-            with open(filepath, "w", encoding="utf-8") as f:
-                json.dump(grid_data, f, ensure_ascii=False, indent=4)
+            # Utilisation de grid.save() centralisé
+            grid_obj.save(filepath)
+            
             self.app.current_filepath = filepath
             self.app.last_json_filepath = filepath
             self.app.save_config()
@@ -412,11 +400,10 @@ class MenuHandler:
         style_menu.add_command(label="Choose Style...", command=self.open_style_selector)
         menubar.add_cascade(label="Style", menu=style_menu)
 
-        # Menu Preferences (Avec l'option Locate MuseScore)
+        # Menu Preferences
         pref_menu = tk.Menu(menubar, tearoff=0)
         pref_menu.add_command(label="Locate MuseScore...", command=self.locate_musescore)
         menubar.add_cascade(label="Preferences", menu=pref_menu)
 
         root.config(menu=menubar)
         return menubar
-                

@@ -1,8 +1,9 @@
-#!/usr/init/python
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
 
 import json
 import sys
+from models import Grid
 from compiler import compile_grid
 from getMusescoreGrid import getGrid
 
@@ -28,11 +29,116 @@ def compare_lists(fl1, fl2):
             sys.stdout.write("\n")
     sys.stdout.write("\n")
 
+def compare_dicts(d1, d2, name1="dict1", name2="dict2"):
+    if hasattr(d1, "to_dict"):
+        d1 = d1.to_dict()
+    if hasattr(d2, "to_dict"):
+        d2 = d2.to_dict()
+
+    print(f"\n--- Comparaison détaillée : {name1} vs {name2} ---", flush=True)
+    keys1 = set(d1.keys())
+    keys2 = set(d2.keys())
+    
+    all_keys = sorted(list(keys1.union(keys2)))
+    print(f"Total clés uniques : {len(all_keys)} ({name1}: {len(keys1)}, {name2}: {len(keys2)})", flush=True)
+    
+    mismatches = 0
+    for key in all_keys:
+        in1 = key in keys1
+        in2 = key in keys2
+        
+        if not in1:
+            print(f"[-] Clé '{key}' absente dans {name1}", flush=True)
+            mismatches += 1
+        elif not in2:
+            print(f"[-] Clé '{key}' absente dans {name2}", flush=True)
+            mismatches += 1
+        else:
+            v1 = d1[key]
+            v2 = d2[key]
+            if v1 != v2:
+                print(f"[X] Différence sur la clé '{key}':", flush=True)
+                print(f"    {name1}: {v1}", flush=True)
+                print(f"    {name2}: {v2}", flush=True)
+                mismatches += 1
+            else:
+                print(f"[.] Clé '{key}' identique", flush=True)
+                
+    if mismatches == 0:
+        print("--- Dictionnaires strictement identiques ---", flush=True)
+    else:
+        print(f"--- Fin de comparaison : {mismatches} divergence(s) ---", flush=True)
+    return mismatches == 0
+
+
+def compare_grids_dict(grid1_dict, grid2_dict):
+    print(f"\n========================================", flush=True)
+    print(f"    COMPARAISON GLOBALE DES DEX GRILLES    ", flush=True)
+    print(f"========================================", flush=True)
+    
+    compare_dicts(grid1_dict.get("header", {}), grid2_dict.get("header", {}), "Header_1", "Header_2")
+    
+    bars1 = grid1_dict.get("bars", [])
+    bars2 = grid2_dict.get("bars", [])
+    
+    print(f"\n--- Comparaison des mesures (Total: {len(bars1)} vs {len(bars2)}) ---", flush=True)
+    
+    max_len = max(len(bars1), len(bars2))
+    diff_count = 0
+    
+    for i in range(max_len):
+        if i >= len(bars1):
+            print(f"[{i+1:3d}] X [Absente dans Grille 1]", flush=True)
+            diff_count += 1
+            continue
+        if i >= len(bars2):
+            print(f"[{i+1:3d}] X [Absente dans Grille 2]", flush=True)
+            diff_count += 1
+            continue
+            
+        b1 = bars1[i]
+        b2 = bars2[i]
+        
+        if b1 != b2:
+            print(f"[{i+1:3d}] X DIFF", flush=True)
+            keys_b1 = set(b1.keys())
+            keys_b2 = set(b2.keys())
+            for k in sorted(keys_b1.union(keys_b2)):
+                if b1.get(k) != b2.get(k):
+                    print(f"        -> clé '{k}': Grille1={b1.get(k)} | Grille2={b2.get(k)}", flush=True)
+            diff_count += 1
+        else:
+            sys.stdout.write(f"[{i+1:3d}]. ")
+            if i % 8 == 7:
+                sys.stdout.write("\n")
+                sys.stdout.flush()
+                
+    sys.stdout.write("\n")
+    if diff_count == 0:
+        print("=== TOUTES LES MESURES SONT IDENTIQUES ===", flush=True)
+    else:
+        print(f"=== {diff_count} mesure(s) différente(s) trouvée(s) ===", flush=True)
+
+def callIntegration(fname):
+    U1, U2 = "temp/utest1.grid", "temp/utest2.grid"
+    print("testing integration %s"%fname, flush=True)
+    grid1 = getGrid(fname)
+    grid1.save(U1)
+    grid2 = Grid.load(U1)
+    #~ grid2.header.title = "valeur_corrompue"
+    grid2.save(U2)
+    with open(U1, "r", encoding="utf-8") as f1, open(U2, "r", encoding="utf-8") as f2:
+        try:
+            assert json.load(f1) == json.load(f2), "Perte de données détectée entre test1 et test2 !"
+        except:
+            compare_dicts(grid1, grid2 , "grid1", "grid2")
+            raise
+
 def callCompiler(fname, ref_list):
     print("testing compilation %s"%fname, flush=True)
-    with open(fname, 'r', encoding='utf-8') as f:
-        grid = json.load(f)
-    flat_list = compile_grid(grid)
+    # Chargement strict via l'objet Grid
+    grid_obj = Grid.load(fname)
+    flat_list = compile_grid(grid_obj)
     try:
         assert flat_list == ref_list
     except AssertionError:
@@ -370,9 +476,11 @@ def utestGetMusescoreGrid():
 
     callMusescoreGrid("musescore/utest/aNightInTunisia.mscz", ref_list)
 
+def utestIntegration():
+    callIntegration("musescore/utest/aNightInTunisia.mscz")
+
 if __name__ == "__main__":
+    utestIntegration()
     utestCompiler()
     utestGetMusescoreGrid()
     print ("\nA L L    T E S T S    P A S S E D !")
-    
-    

@@ -3,6 +3,7 @@
 from copy import deepcopy
 from constants import *
 from musicalGlyphes import *
+from models import Grid, Bar
 from sys import stdout
 debug = False
 
@@ -54,13 +55,8 @@ def logLists(normal_buffer, repeat_buffer, volta_buffer, flat_barlist):
     log("repeat_buffer \n%s"%logList(repeat_buffer))
     log("volta_buffer \n%s"%logList(volta_buffer))
     log("flat_barlist \n%s"%logList(flat_barlist))
-
-def logAndFail(normal_buffer, repeat_buffer, volta_buffer, flat_barlist, bar_number):
-    log("bar number %u\n"%bar_number)
-    logLists(normal_buffer, repeat_buffer, volta_buffer, flat_barlist)
-    raise Exception("Error Not implemented!")
     
-def compile(bars):
+def compile(bars: list[Bar]):
     setState(NORMAL)
     flat_barlist = []
     normal_buffer = []
@@ -71,10 +67,11 @@ def compile(bars):
     segno_bar_num = None
     
     for bar_index, bar in enumerate(bars):
-        bar_number = bar[KEY_NUMBER]
+        bar_number = bar.number
         log("%4u %-6s"%(bar_number, REPEAT_STATE_LABEL[getState()]))
-        markers = bar.get(KEY_MARKERS, [])
-        jumps = bar.get(KEY_JUMPS, [])
+        
+        markers = bar.markers
+        jumps = bar.jumps
         if MG_SEGNO in markers and segno_bar_num is None:
             segno_bar_num = bar_number
         if MG_FINE in markers and fine_bar_num is None:
@@ -82,12 +79,13 @@ def compile(bars):
         if any(MG_DS_AL_FINE in j for j in jumps):
             ds_al_fine_bar_num = bar_number
             
-        is_start = bool(bar.get(KEY_START_REPEAT, False))
+        is_start = bool(bar.start_repeat)
         if is_start: log("start repeat ")
-        is_volta = KEY_VOLTA in bar or bar.get(KEY_VOLTA, False)
-        is_volta_bool = bool(is_volta)
+        
+        is_volta_bool = bool(bar.volta)
         if is_volta_bool: log("volta  ")
-        end_rep = bar.get(KEY_END_REPEAT, None)
+        
+        end_rep = bar.end_repeat
         is_end = bool(end_rep)
         repeat_count = end_rep if isinstance(end_rep, int) else 2
         if is_end: log("end_repeat ")
@@ -157,7 +155,6 @@ def compile(bars):
                 repeat_buffer = []
                 volta_buffer = []
 
-
         elif state == REPEAT:
             if not is_start and not is_end and not is_volta_bool:
                 repeat_buffer.append(bar_number)
@@ -181,7 +178,7 @@ def compile(bars):
                 flat_barlist += repeat_buffer + volta_buffer
                 volta_buffer = []
                 
-                has_next_volta = (bar_index + 1 < len(bars)) and (KEY_VOLTA in bars[bar_index + 1])
+                has_next_volta = (bar_index + 1 < len(bars)) and bool(bars[bar_index + 1].volta)
                 if has_next_volta:
                     setState(REPEAT)
                 else:
@@ -211,12 +208,11 @@ def compile(bars):
                 repeat_buffer = [bar_number]
                 volta_buffer = []
                 
-                has_next_volta = (bar_index + 1 < len(bars)) and (KEY_VOLTA in bars[bar_index + 1])
+                has_next_volta = (bar_index + 1 < len(bars)) and bool(bars[bar_index + 1].volta)
                 if has_next_volta:
                     setState(REPEAT)
                 else:
                     setState(REPEAT)
-
 
         elif state == VOLTA:
             if not is_start and not is_end and not is_volta_bool:
@@ -232,7 +228,7 @@ def compile(bars):
                 flat_barlist += repeat_buffer + volta_buffer
                 volta_buffer = []
                 
-                has_next_volta = (bar_index + 1 < len(bars)) and (KEY_VOLTA in bars[bar_index + 1])
+                has_next_volta = (bar_index + 1 < len(bars)) and bool(bars[bar_index + 1].volta)
                 if has_next_volta:
                     setState(REPEAT)
                 else:
@@ -245,17 +241,10 @@ def compile(bars):
                 else:
                     volta_buffer.append(bar_number)
                 
-                # Correction du comportement des barres de fin de voltes successives
-                # Si c'est la fin du bloc de reprise complet ou qu'il n'y a plus de suite de volta liée, on applique la répétition globale
-                has_next_volta = (bar_index + 1 < len(bars)) and (KEY_VOLTA in bars[bar_index + 1])
-                if not has_next_volta:
-                    # Génération complète de toutes les reprises avec leurs voltes respectives si nécessaire
-                    # Mais pour rester simple et robuste :
-                    pass
-                
                 flat_barlist += repeat_buffer + volta_buffer
                 volta_buffer = [bar_number]
                 
+                has_next_volta = (bar_index + 1 < len(bars)) and bool(bars[bar_index + 1].volta)
                 if has_next_volta:
                     setState(VOLTA)
                 else:
@@ -292,10 +281,10 @@ def compile(bars):
             raise Exception("unexpected state %s"%str(getState()))
 
         log("\n")
-        log("       normal_buffer %s\n"%str(normal_buffer))
-        log("       repeat_buffer %s\n"%str(repeat_buffer))
-        log("       volta_buffer %s\n"%str(volta_buffer))
-        log("       flat_barlist %s\n"%str(flat_barlist))
+        log("    normal_buffer %s\n"%str(normal_buffer))
+        log("    repeat_buffer %s\n"%str(repeat_buffer))
+        log("    volta_buffer %s\n"%str(volta_buffer))
+        log("    flat_barlist %s\n"%str(flat_barlist))
 
     flat_barlist += normal_buffer + repeat_buffer + volta_buffer
     normal_buffer = []
@@ -314,37 +303,33 @@ def compile(bars):
                 break
         flat_barlist += ds_list
 
-    log("post traitement\n")
-    log("normal_buffer %s\n"%str(normal_buffer))
-    log("repeat_buffer %s\n"%str(repeat_buffer))
-    log("volta_buffer %s\n"%str(volta_buffer))
-    log("\n%s"%logList(flat_barlist))
     return flat_barlist
 
-def compile_grid(grid_data):
-    bars = grid_data.get(KEY_BARS, [])
-    return compile(bars)
+def compile_grid(grid: Grid) -> list[int]:
+    """Compile la grille (objet Grid strict) et retourne les numéros de mesures."""
+    return compile(grid.bars)
 
-def compileAndFlatenizeGrid(grid_data):
-    bars = grid_data.get(KEY_BARS, [])
-    bar_index_map = {bar[KEY_NUMBER]: bar for bar in bars}
-    flat_bar_numbers = compile(bars)
-    flat_bars = [
-        bar_index_map[b_num] 
-        for b_num in flat_bar_numbers 
-        if b_num in bar_index_map
-    ]
-    return flat_bars
+def compileAndFlatenizeGrid(grid: Grid) -> Grid:
+    """Prend un objet Grid strict, le compile et retourne un NOUVEL objet Grid aplati."""
+    bar_index_map = {bar.number: bar for bar in grid.bars}
+    flat_bar_numbers = compile(grid.bars)
     
-if __name__ == "__main__":
+    flat_grid = Grid(header=deepcopy(grid.header))
+    for new_num, b_num in enumerate(flat_bar_numbers, start=1):
+        if b_num in bar_index_map:
+            original_bar = bar_index_map[b_num]
+            bar_data = original_bar.to_dict()
+            bar_data[KEY_NUMBER] = new_num
+            flat_grid.add_bar(Bar.from_dict(bar_data))
+            
+    return flat_grid
 
+if __name__ == "__main__":
     import json
     import sys
 
     debug = True
-
-    with open('grids/utest/aNightInTunisia.grid', 'r', encoding='utf-8') as f:
-        grid = json.load(f)
+    grid_obj = Grid.load('grids/utest/aNightInTunisia.grid')
     stdout = open("temp/report.txt", "w")
-    fl = compile_grid(grid)
+    fl = compile_grid(grid_obj)
     print("logged in \"temp/report.txt\"")
