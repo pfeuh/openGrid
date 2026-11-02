@@ -43,10 +43,8 @@ def getGrid(file_path) -> Grid:
     extension = file_path.suffix.lower()
     input_for_musescore = None
 
-    # Détection élargie des formats de chansons Band-in-a-Box (gère .sgu, .mgu, et toutes les variantes .sg* / .mg*)
     is_biab_song = extension in [".sgu", ".mgu"] or extension.startswith(".sg") or extension.startswith(".mg")
 
-    # Aiguillage selon le type de fichier source
     if extension == ".mscz":
         _extract_mscz(file_path, TEMP_DIR)
         mscx_files = list(TEMP_DIR.glob("*.mscx"))
@@ -58,10 +56,7 @@ def getGrid(file_path) -> Grid:
         with zipfile.ZipFile(file_path, "r") as zip_ref:
             zip_ref.extractall(TEMP_DIR)
         
-        # Recherche d'un format compatible à l'intérieur du ZIP
         mscx_files = list(TEMP_DIR.glob("**/*.mscx"))
-        
-        # Recherche élargie de fichiers BIAB dans le ZIP
         biab_files = []
         for p in TEMP_DIR.glob("**/*"):
             if p.is_file():
@@ -77,15 +72,13 @@ def getGrid(file_path) -> Grid:
             raise FileNotFoundError("Aucun fichier compatible (.mscx ou grille Band-in-a-Box) trouvé dans l'archive ZIP.")
 
     elif is_biab_song:
-        # Fichier binaire brut Band-in-a-Box (quelque soit sa variante de suffixe song)
         input_for_musescore = file_path
     else:
-        raise ValueError(f"Format de fichier non pris en charge ou extension de style non importable : {extension}")
+        raise ValueError(f"Format de fichier non pris en charge ou extension non importable : {extension}")
 
     musicxml_path = TEMP_DIR / "partition.musicxml"
     success = False
 
-    # Chargement dynamique du chemin MuseScore depuis la configuration (.grid_editor_config.json)
     custom_musescore_path = None
     if CONFIG_FILE_PATH.exists():
         try:
@@ -107,7 +100,6 @@ def getGrid(file_path) -> Grid:
 
     for cmd in musescore_commands:
         try:
-            # Si c'est un chemin absolu/relatif vers un fichier/AppImage, on vérifie son existence
             if ("/" in cmd or "\\" in cmd) and not Path(cmd).exists():
                 continue
 
@@ -132,19 +124,41 @@ def getGrid(file_path) -> Grid:
     if not parts:
         raise ValueError("Aucune partie (part) trouvée dans le fichier MusicXML.")
 
-    # Recherche de la première partie contenant des accords (<harmony>)
-    target_part = None
+    # 1. Recherche de la portée porteuse d'accords (pour les accords uniquement)
+    chord_part = None
     for part in parts:
         if part.find(".//harmony") is not None:
-            target_part = part
+            chord_part = part
+            break
+    if chord_part is None:
+        chord_part = parts[0]
+
+    # 2. Recherche de la portée porteuse de structure (sections, voltas, sauts, repères)
+    structure_part = None
+    for part in parts:
+        has_structure = (
+            part.find(".//rehearsal") is not None or
+            part.find(".//segno") is not None or
+            part.find(".//coda") is not None or
+            part.find(".//ending") is not None
+        )
+        if not has_structure:
+            for words in part.findall(".//words"):
+                if words.text:
+                    txt = words.text.strip().lower()
+                    if any(k in txt for k in ["ds", "dc", "coda", "segno", "fine", "to coda"]):
+                        has_structure = True
+                        break
+        if has_structure:
+            structure_part = part
             break
     
-    if target_part is None:
-        raise ValueError("Aucune partie contenant des accords (<harmony>) n'a été trouvée dans le fichier.")
+    if structure_part is None:
+        structure_part = parts[0]
 
-    # Informations d'en-tête : priorité au titre textuel des crédits
+    # --- En-tête : Récupération robuste du Titre et du Compositeur ---
     work_title = None
-    for credit in root_elem.findall("credit"):
+    for credit in root_elem.findall(".//credit"):
         c_type = credit.findtext("credit-type")
         if c_type == "title":
             words = credit.findtext("credit-words")
@@ -154,18 +168,23 @@ def getGrid(file_path) -> Grid:
     if not work_title:
         work_title = root_elem.findtext(".//work-title", file_path.stem)
     
-    composer = root_elem.findtext(".//creator[@type='composer']", "")
-    lyricist = root_elem.findtext(".//creator[@type='lyricist']", "")
-    arranger = root_elem.findtext(".//creator[@type='arranger']", "")
+    composer = root_elem.findtext(".//identification/creator[@type='composer']", "")
+    if not composer:
+        composer = root_elem.findtext(".//creator[@type='composer']", "")
 
-    measures = target_part.findall("measure")
-    if not measures:
-        raise ValueError("Aucune mesure trouvée dans l'export MusicXML.")
+    lyricist = root_elem.findtext(".//identification/creator[@type='lyricist']", "")
+    arranger = root_elem.findtext(".//identification/creator[@type='arranger']", "")
+
+    chord_measures = chord_part.findall("measure")
+    struct_measures = structure_part.findall("measure")
+
+    if not chord_measures:
+        raise ValueError("Aucune mesure trouvée dans la partie d'accords.")
 
     initial_timesig = "4/4"
     initial_bpm = 120
 
-    for measure in measures:
+    for measure in chord_measures:
         ts_elem = measure.find(".//time")
         if ts_elem is not None:
             beats = ts_elem.findtext("beats", "")
@@ -174,7 +193,7 @@ def getGrid(file_path) -> Grid:
                 initial_timesig = f"{beats}/{beat_type}"
                 break
 
-    for measure in measures:
+    for measure in chord_measures:
         sound_elem = measure.find(".//sound")
         if sound_elem is not None and sound_elem.get("tempo"):
             try:
@@ -196,14 +215,18 @@ def getGrid(file_path) -> Grid:
     current_measure_tick = 0
     current_timesig = initial_timesig
 
-    for i, measure in enumerate(measures, start=1):
+    # Synchronisation des mesures entre chord_part et structure_part par index
+    for i in range(1, len(chord_measures) + 1):
+        chord_measure = chord_measures[i - 1]
+        struct_measure = struct_measures[i - 1] if (i - 1) < len(struct_measures) else chord_measure
+
         measure_duration = 1920
 
-        div_elem = measure.find(".//divisions")
+        div_elem = chord_measure.find(".//divisions")
         if div_elem is not None and div_elem.text and div_elem.text.isdigit():
             current_divisions = int(div_elem.text.strip())
 
-        ts_elem = measure.find(".//time")
+        ts_elem = chord_measure.find(".//time")
         measure_timesig = ""
         
         if ts_elem is not None:
@@ -221,10 +244,10 @@ def getGrid(file_path) -> Grid:
         elif i == 1:
             measure_timesig = initial_timesig
 
-        keysig = measure.findtext(".//key/fifths", "0")
+        keysig = chord_measure.findtext(".//key/fifths", "0")
         
         bpm = 0
-        sound_elem = measure.find(".//sound")
+        sound_elem = chord_measure.find(".//sound")
         if sound_elem is not None and sound_elem.get("tempo"):
             try:
                 bpm = int(float(sound_elem.get("tempo")))
@@ -238,7 +261,8 @@ def getGrid(file_path) -> Grid:
             bpm=bpm
         )
 
-        for barline in measure.findall("barline"):
+        # Extraction des barlines, reprises et voltas depuis la portée de structure
+        for barline in struct_measure.findall("barline"):
             repeat = barline.find("repeat")
             if repeat is not None:
                 direction = repeat.get("direction")
@@ -251,7 +275,6 @@ def getGrid(file_path) -> Grid:
                     except ValueError:
                         bar.end_repeat = 1
 
-            # Extraction des voltas (endings MusicXML)
             ending = barline.find("ending")
             if ending is not None:
                 ending_type = ending.get("type")
@@ -259,10 +282,11 @@ def getGrid(file_path) -> Grid:
                     num = ending.get("number", "1")
                     bar.volta = num
 
+        # Extraction des accords depuis la portée d'accords uniquement
         raw_chords = []
         cumulative_divisions = 0
 
-        for elem in measure:
+        for elem in chord_measure:
             tag = elem.tag
 
             if tag == "harmony":
@@ -287,39 +311,53 @@ def getGrid(file_path) -> Grid:
                     if dur_elem and dur_elem.isdigit():
                         cumulative_divisions += int(dur_elem)
 
-            elif tag == "direction":
+        # Extraction des sections, repères et sauts depuis la portée de structure
+        for elem in struct_measure:
+            tag = elem.tag
+            if tag == "direction":
                 rehearsal = elem.find(".//rehearsal")
                 if rehearsal is not None and rehearsal.text:
                     bar.add_section(rehearsal.text.strip())
 
-                words = elem.find(".//words")
-                if words is not None and words.text:
-                    w_text = words.text.strip().lower()
-                    if "d.s. al fine" in w_text or "ds al fine" in w_text:
-                        bar.add_jump("MG_DS_AL_FINE")
-                    elif "d.s. al coda" in w_text or "ds al coda" in w_text:
-                        bar.add_jump("MG_DS_AL_CODA")
-                    elif "d.c. al fine" in w_text or "dc al fine" in w_text:
-                        bar.add_jump("MG_DC_AL_FINE")
-                    elif "d.c. al coda" in w_text or "dc al coda" in w_text:
-                        bar.add_jump("MG_DC_AL_CODA")
-                    elif "to" in w_text and "coda" in w_text:
-                        bar.add_jump("MG_TO_CODA")
-                    elif "d.c." in w_text or "da capo" in w_text:
-                        bar.add_jump("MG_DA_CAPO")
-                    elif "d.s." in w_text or "dal segno" in w_text:
-                        bar.add_jump("MG_GOTO_SIGNO")
-                    elif "fine" in w_text:
-                        bar.add_marker("MG_FINE")
-                    elif "segno" in w_text:
-                        bar.add_marker("MG_SEGNO")
-                    elif "coda" in w_text:
-                        bar.add_marker("MG_CODA")
+                for words_elem in elem.findall(".//words"):
+                    if words_elem.text:
+                        w_text = words_elem.text.strip().lower()
+                        w_clean = w_text.replace(".", "").replace(" ", "").replace("-", "")
 
-                if elem.find(".//segno") is not None:
-                    bar.add_marker("MG_SEGNO")
+                        if "dsalfin" in w_clean or "dselfin" in w_clean:
+                            bar.add_jump("MG_DS_AL_FINE")
+                        elif "dsalcoda" in w_clean or "dsalc" in w_clean:
+                            bar.add_jump("MG_DS_AL_CODA")
+                        elif "dcalfin" in w_clean:
+                            bar.add_jump("MG_DC_AL_FINE")
+                        elif "dcalcoda" in w_clean:
+                            bar.add_jump("MG_DC_AL_CODA")
+                        elif "tocoda" in w_clean or "toc" in w_clean:
+                            bar.add_jump("MG_TO_CODA")
+                        elif "dacapo" in w_clean or w_clean == "dc":
+                            bar.add_jump("MG_DA_CAPO")
+                        elif "dalsegno" in w_clean or w_clean == "ds":
+                            bar.add_jump("MG_GOTO_SIGNO")
+                        elif "fine" in w_clean:
+                            bar.add_marker("MG_FINE")
+                        elif "segno" in w_clean:
+                            bar.add_marker("MG_SEGNO")
+                        elif "coda" in w_clean and "to" not in w_clean and "al" not in w_clean:
+                            bar.add_marker("MG_CODA")
+
                 if elem.find(".//coda") is not None:
                     bar.add_marker("MG_CODA")
+                if elem.find(".//segno") is not None:
+                    bar.add_marker("MG_SEGNO")
+
+                sound_dir = elem.find(".//sound")
+                if sound_dir is not None:
+                    if sound_dir.get("coda") or sound_dir.get("tocoda"):
+                        if "MG_TO_CODA" not in bar.jumps:
+                            bar.add_jump("MG_TO_CODA")
+                    if sound_dir.get("dalsegno"):
+                        if not any(j in bar.jumps for j in ["MG_DS_AL_CODA", "MG_DS_AL_FINE", "MG_GOTO_SIGNO"]):
+                            bar.add_jump("MG_DS_AL_CODA")
 
         if raw_chords:
             bar.set_chords_from_internal(raw_chords)
