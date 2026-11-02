@@ -24,3 +24,6 @@ musescore/*
 pdf/*
 # Ignorer tous les dossiers .mscbackup et leur contenu, peu importe leur profondeur dans le projet
 **/.mscbackup/
+
+excel/*
+
