@@ -1,4 +1,3 @@
-#!/usr/bin/python
 # -*- coding: utf-8 -*-
 
 import os
@@ -9,6 +8,7 @@ from pathlib import Path
 
 import pdfGenerator
 import getMusescoreGrid
+from gridToExcell import gridToExcel
 from toCamelCase import to_camel_case
 from models import Grid, Header, Bar
 from styleSelectorModal import StyleSelectorModal
@@ -97,6 +97,17 @@ class MenuHandler:
         elif self.app.last_pdf_filepath:
             return os.path.basename(self.app.last_pdf_filepath)
         return "score.pdf"
+
+    def get_default_excel_filename(self):
+        title_val = self.app.title_entry.get().strip()
+        if self.app.current_filepath:
+            base_name = os.path.splitext(os.path.basename(self.app.current_filepath))[0]
+            return to_camel_case(base_name) + ".xlsx"
+        elif title_val:
+            return to_camel_case(title_val) + ".xlsx"
+        elif self.app.last_excel_filepath:
+            return os.path.basename(self.app.last_excel_filepath)
+        return "score.xlsx"
 
     def get_initial_dir(self, target_filepath=None):
         if target_filepath and os.path.exists(target_filepath):
@@ -227,7 +238,6 @@ class MenuHandler:
 
     def _load_from_path(self, filepath, show_popup=True):
         try:
-            # Utilisation de Grid.load() centralisé
             grid_obj = Grid.load(filepath)
             header = grid_obj.header
 
@@ -280,7 +290,6 @@ class MenuHandler:
         )
 
         try:
-            # Utilisation de grid.save() centralisé
             grid_obj.save(filepath)
             
             self.app.current_filepath = filepath
@@ -345,7 +354,6 @@ class MenuHandler:
 
     def generate_pdf(self):
         initial_dir = self.get_initial_dir(self.app.last_pdf_filepath)
-
         pdf_filename = self.get_default_pdf_filename()
         filepath = filedialog.asksaveasfilename(
             title="Exporter en PDF",
@@ -362,6 +370,25 @@ class MenuHandler:
                 messagebox.showinfo("Succès", f"PDF généré avec succès :\n{filepath}")
             except Exception as e:
                 messagebox.showerror("Erreur", f"Erreur lors de la génération du PDF :\n{e}")
+
+    def generate_excel(self):
+        initial_dir = self.get_initial_dir(self.app.last_excel_filepath)
+        excel_filename = self.get_default_excel_filename()
+        filepath = filedialog.asksaveasfilename(
+            title="Exporter en Excel",
+            initialdir=initial_dir,
+            initialfile=excel_filename,
+            defaultextension=".xlsx",
+            filetypes=[("Fichiers Excel", "*.xlsx"), ("Tous les fichiers", "*.*")],
+        )
+        if filepath:
+            try:
+                gridToExcel(self.app.vectorial_editor.grid, filepath)
+                self.app.last_excel_filepath = filepath
+                self.app.save_config()
+                messagebox.showinfo("Succès", f"Grille exportée en Excel avec succès :\n{filepath}")
+            except Exception as e:
+                messagebox.showerror("Erreur", f"Erreur lors de la génération du fichier Excel :\n{e}")
                 
     def setup_menus(self, root):
         """Crée et configure toute la barre de menu de l'application."""
@@ -370,7 +397,7 @@ class MenuHandler:
         # Menu File
         file_menu = tk.Menu(menubar, tearoff=0)
         file_menu.add_command(label="New", command=self.file_new)
-        file_menu.add_command(label="Load...", command=self.app.load_json_fixed)
+        file_menu.add_command(label="Load...", command=self.load_json)
         file_menu.add_command(label="Save", command=self.file_save)
         file_menu.add_command(label="Save As...", command=self.file_save_as)
         file_menu.add_command(label="Save a Copy...", command=self.file_save_copy)
@@ -378,16 +405,13 @@ class MenuHandler:
         
         # Sous-menu Import
         import_menu = tk.Menu(file_menu, tearoff=0)
-        import_menu.add_command(label="from MuseScore...", command=self.app.load_musescore_fixed)
-        import_menu.add_separator()
-        import_menu.add_command(label="from Band-in-a-Box (.sgu / .mgu / .zip)...", command=self.app.load_biab_fixed)
-        import_menu.add_separator()
-        import_menu.add_command(label="from iReal Pro...", command=self.app.import_ireal_pro_dialog)
+        import_menu.add_command(label="from MuseScore...", command=self.load_musescore)
         file_menu.add_cascade(label="Import", menu=import_menu)
 
         # Sous-menu Export
         export_menu = tk.Menu(file_menu, tearoff=0)
         export_menu.add_command(label="PDF...", command=self.generate_pdf)
+        export_menu.add_command(label="Excel...", command=self.generate_excel)
         file_menu.add_cascade(label="Export", menu=export_menu)
 
         file_menu.add_separator()

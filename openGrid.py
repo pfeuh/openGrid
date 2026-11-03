@@ -1,4 +1,4 @@
-#!/usr/init/python
+#!/usr/bin/python
 # -*- coding: utf-8 -*-
 
 import json
@@ -13,10 +13,7 @@ import rtmidi
 # Import de TkinterDnD pour le support du Drag & Drop
 from tkinterdnd2 import DND_FILES, TkinterDnD
 
-from irealPro2Json import irealproToGrid
-from getMusescoreGrid import getGrid
-
-# Import des constantes centralisées pour éviter les chaînes en dur
+# Import des constantes centralisées
 from constants import (
     KEY_HEADER, KEY_BARS, KEY_TITLE, KEY_COMPOSER, 
     KEY_BPM, KEY_TIMESIG, KEY_STYLE, KEY_NUMBER, KEY_CHORDS
@@ -24,56 +21,7 @@ from constants import (
 
 from measureEditor import open_measure_editor
 
-# Sauvegarde des fonctions standard de secours avant toute modification
-import tkinter.filedialog as std_fd
-
-# Amélioration automatique du sélecteur de fichiers pour Ubuntu (avec repli de sécurité en cas de bug de grab Tcl)
-try:
-    from tkfilebrowser import askopenfilename as tk_askopenfilename, asksaveasfilename as tk_asksaveasfilename, askopendirname as tk_askopendirname
-    import tkinter.filedialog as fd
-
-    def _adapt_args(kwargs):
-        if 'filetypes' in kwargs:
-            new_filetypes = []
-            for name, pattern in kwargs['filetypes']:
-                if isinstance(pattern, (list, tuple)):
-                    pattern_str = "|".join(pattern)
-                else:
-                    pattern_str = pattern.replace(' ', '|')
-                new_filetypes.append((name, pattern_str))
-            kwargs['filetypes'] = new_filetypes
-         
-        # Désactive l'affichage des fichiers récents pour éviter le bug des index numériques sous Linux
-        if 'show_recent' in tk_askopenfilename.__code__.co_varnames:
-            kwargs['show_recent'] = False
-             
-        return kwargs
-
-    def custom_askopenfilename(**kwargs):
-        try:
-            if 'parent' in kwargs and kwargs['parent']:
-                kwargs['parent'].update_idletasks()
-            return tk_askopenfilename(**_adapt_args(kwargs))
-        except Exception:
-            # Repli automatique sur le sélecteur natif standard en cas d'échec de tkfilebrowser
-            return std_fd.askopenfilename(**kwargs)
-
-    def custom_asksaveasfilename(**kwargs):
-        try:
-            if 'parent' in kwargs and kwargs['parent']:
-                kwargs['parent'].update_idletasks()
-            return tk_asksaveasfilename(**_adapt_args(kwargs))
-        except Exception:
-            # Repli automatique sur le sélecteur natif standard en cas d'échec de tkfilebrowser
-            return std_fd.asksaveasfilename(**kwargs)
-
-    fd.askopenfilename = custom_askopenfilename
-    fd.asksaveasfilename = custom_asksaveasfilename
-    fd.askopendirname = tk_askopendirname
-    HAS_TKFILEBROWSER = True
-except ImportError:
-    HAS_TKFILEBROWSER = False
-
+# Import des modules personnalisés
 from models import Grid, Header, Bar
 from vectorialEditor import VectorialGridCanvas
 from fontLoader import register_project_fonts
@@ -98,6 +46,7 @@ class HybridGridEditorApp:
         self.last_musescore_filepath = None
         self.last_biab_filepath = None
         self.last_pdf_filepath = None
+        self.last_excel_filepath = None  # Suivi du dernier fichier Excel exporté
         self.style_catalog_path = DEFAULT_CATALOG_PATH
         self.midi_port_idx = 0
         self.musescore_path = None
@@ -107,7 +56,7 @@ class HybridGridEditorApp:
 
         self.load_config()
 
-        # Instanciation du gestionnaire de menus et de fichiers
+        # Instanciation du gestionnaire de menus
         self.menu_handler = MenuHandler(self)
 
         # Interception de la fermeture de la fenêtre (croix rouge)
@@ -288,190 +237,11 @@ class HybridGridEditorApp:
 
         self.check_arranger_status()
 
-    def import_ireal_pro_dialog(self):
-        """Demande confirmation par une boîte askyesno, puis lit et importe le lien du presse-papier."""
-        if messagebox.askyesno("Import iReal Pro", "Voulez-vous importer le lien iReal Pro depuis le presse-papier ?"):
-            try:
-                url = self.root.clipboard_get().strip()
-            except Exception:
-                url = ""
-
-            if not url:
-                messagebox.showwarning("Presse-papier vide", "Aucun texte n'a été trouvé dans le presse-papier.")
-                return
-
-            self.process_ireal_pro_url(url)
-
-    def process_ireal_pro_url(self, url):
-        """Appelle irealproToGrid et charge directement l'objet Grid retourné."""
-        grid_obj = irealproToGrid(url)
-         
-        if not grid_obj:
-            messagebox.showwarning("Attention", "La conversion n'a retourné aucune grille valide.")
-            return
-
-        self.current_filepath = None
-        self.vectorial_editor.load_grid(grid_obj)
-         
-        if hasattr(grid_obj, 'header') and grid_obj.header:
-            if hasattr(grid_obj.header, 'title') and grid_obj.header.title:
-                self.title_entry.delete(0, tk.END)
-                self.title_entry.insert(0, grid_obj.header.title)
-            if hasattr(grid_obj.header, 'composer') and grid_obj.header.composer:
-                self.composer_entry.delete(0, tk.END)
-                self.composer_entry.insert(0, grid_obj.header.composer)
-            if hasattr(grid_obj.header, 'bpm') and grid_obj.header.bpm:
-                self.bpm_entry.delete(0, tk.END)
-                self.bpm_entry.insert(0, str(grid_obj.header.bpm))
-            if hasattr(grid_obj.header, 'timesig') and grid_obj.header.timesig:
-                self.timesig_combo.set(grid_obj.header.timesig)
-
-        self.set_modified(True)
-        messagebox.showinfo("Succès", "Grille iReal Pro importée avec succès !")
-
-    def load_json_fixed(self):
-        """Ouvre le sélecteur de fichier Grid en pointant proprement sur le dossier et le nom du dernier fichier."""
-        target_path = self.current_filepath or self.last_json_filepath
-        initial_dir = os.path.dirname(target_path) if target_path and os.path.isfile(target_path) else "."
-        initial_file = os.path.basename(target_path) if target_path and os.path.isfile(target_path) else ""
-
-        file_path = fd.askopenfilename(
-            title="Charger une grille",
-            initialdir=initial_dir,
-            initialfile=initial_file,
-            filetypes=[("Fichiers Grille", "*.grid"), ("Tous les fichiers", "*.*")]
-        )
-        if file_path:
-            self.last_json_filepath = file_path
-            self.save_config()
-            self.menu_handler._load_from_path(file_path, show_popup=True)
-
-    def load_musescore_fixed(self):
-        """Ouvre le sélecteur de fichier MuseScore en pointant proprement sur le dossier et le nom du dernier fichier."""
-        initial_dir = os.path.dirname(self.last_musescore_filepath) if self.last_musescore_filepath and os.path.isfile(self.last_musescore_filepath) else "."
-        initial_file = os.path.basename(self.last_musescore_filepath) if self.last_musescore_filepath and os.path.isfile(self.last_musescore_filepath) else ""
-
-        file_path = fd.askopenfilename(
-            title="Charger depuis MuseScore",
-            initialdir=initial_dir,
-            initialfile=initial_file,
-            filetypes=[("Fichiers MuseScore", "*.mscz *.mscx"), ("Tous les fichiers", "*.*")]
-        )
-        if file_path:
-            self.last_musescore_filepath = file_path
-            self.save_config()
-             
-            # Application du sablier pendant le traitement MuseScore
-            self.root.config(cursor="watch")
-            self.root.update_idletasks()
-            try:
-                if hasattr(self.menu_handler, '_load_musescore_from_path'):
-                    self.menu_handler._load_musescore_from_path(file_path)
-                elif hasattr(self.menu_handler, 'load_musescore'):
-                    self.menu_handler.load_musescore()
-            finally:
-                self.root.config(cursor="")
-
-    def load_biab_fixed(self):
-        """Ouvre le sélecteur de fichier Band-in-a-Box (.sgu, .mgu, .zip)."""
-        initial_dir = os.path.dirname(self.last_biab_filepath) if self.last_biab_filepath and os.path.isfile(self.last_biab_filepath) else "."
-        initial_file = os.path.basename(self.last_biab_filepath) if self.last_biab_filepath and os.path.isfile(self.last_biab_filepath) else ""
-
-        file_path = fd.askopenfilename(
-            title="Charger depuis Band-in-a-Box",
-            initialdir=initial_dir,
-            initialfile=initial_file,
-            filetypes=[
-                ("Band-in-a-Box & Archives", "*.sgu *.mgu *.zip"),
-                ("Tous les fichiers", "*.*")
-            ]
-        )
-        if file_path:
-            self.last_biab_filepath = file_path
-            self.save_config()
-            self._load_biab_from_path(file_path)
-
-    def _load_biab_from_path(self, file_path):
-        # Activation du curseur d'attente (sablier) car MuseScore peut prendre un moment
-        self.root.config(cursor="watch")
-        self.root.update_idletasks()
-        try:
-            grid_obj = getGrid(file_path)
-            if not grid_obj:
-                messagebox.showwarning("Attention", "La conversion Band-in-a-Box n'a retourné aucune grille valide.")
-                return
-
-            self.current_filepath = None
-            self.vectorial_editor.load_grid(grid_obj)
-
-            if hasattr(grid_obj, 'header') and grid_obj.header:
-                if hasattr(grid_obj.header, 'title') and grid_obj.header.title:
-                    self.title_entry.delete(0, tk.END)
-                    self.title_entry.insert(0, grid_obj.header.title)
-                if hasattr(grid_obj.header, 'composer') and grid_obj.header.composer:
-                    self.composer_entry.delete(0, tk.END)
-                    self.composer_entry.insert(0, grid_obj.header.composer)
-                if hasattr(grid_obj.header, 'bpm') and grid_obj.header.bpm:
-                    self.bpm_entry.delete(0, tk.END)
-                    self.bpm_entry.insert(0, str(grid_obj.header.bpm))
-                if hasattr(grid_obj.header, 'timesig') and grid_obj.header.timesig:
-                    self.timesig_combo.set(grid_obj.header.timesig)
-
-            self.set_modified(True)
-            messagebox.showinfo("Succès", f"Fichier Band-in-a-Box importé avec succès :\n{os.path.basename(file_path)}")
-        except Exception as e:
-            messagebox.showerror("Erreur d'import", f"Impossible d'importer le fichier Band-in-a-Box :\n{e}")
-        finally:
-            # Restauration du curseur normal dans tous les cas
-            self.root.config(cursor="")
-
     def handle_file_drop(self, event):
-        """Gère le dépôt d'un ou plusieurs fichiers par drag & drop sur la fenêtre."""
+        """Gère le dépôt de fichiers par drag & drop."""
         files = self.root.tk.splitlist(event.data)
-        if not files:
-            return
-
-        file_path = files[0]  # On prend le premier fichier glissé
-        if not os.path.isfile(file_path):
-            return
-
-        # Vérification des modifications non sauvegardées avant l'ouverture
-        if self.is_modified:
-            if not self.menu_handler.check_save_before_action():
-                return
-
-        ext = os.path.splitext(file_path)[1].lower()
-         
-        try:
-            if ext == '.grid':
-                self.last_json_filepath = file_path
-                self.save_config()
-                self.menu_handler._load_from_path(file_path, show_popup=True)
-            elif ext in ['.mscz', '.mscx']:
-                self.last_musescore_filepath = file_path
-                self.save_config()
-                 
-                # Curseur d'attente pour MuseScore via drop
-                self.root.config(cursor="watch")
-                self.root.update_idletasks()
-                try:
-                    if hasattr(self.menu_handler, '_load_musescore_from_path'):
-                        self.menu_handler._load_musescore_from_path(file_path)
-                    elif hasattr(self.menu_handler, 'load_musescore'):
-                        self.menu_handler.load_musescore()
-                    else:
-                        messagebox.showinfo("Info", f"Fichier MuseScore détecté : {os.path.basename(file_path)}")
-                finally:
-                    self.root.config(cursor="")
-                     
-            elif ext in ['.sgu', '.mgu', '.zip']:
-                self.last_biab_filepath = file_path
-                self.save_config()
-                self._load_biab_from_path(file_path)
-            else:
-                messagebox.showwarning("Format non supporté", f"Le fichier '{os.path.basename(file_path)}' n'est pas un format reconnu (.grid, .mscz, .mscx, .sgu, .mgu, .zip).")
-        except Exception as e:
-            messagebox.showerror("Erreur", f"Impossible d'ouvrir le fichier déposé :\n{e}")
+        if files and os.path.isfile(files[0]):
+            self.menu_handler._load_from_path(files[0])
 
     def get_style_info_from_catalog(self, style_name):
         """Recherche dans le catalogue de styles le tempo (bpm) et la catégorie associés au style."""
@@ -480,7 +250,7 @@ class HybridGridEditorApp:
         try:
             with open(self.style_catalog_path, "r", encoding="utf-8") as f:
                 catalog = json.load(f)
-             
+               
             if isinstance(catalog, dict):
                 for cat, styles in catalog.items():
                     if isinstance(styles, dict):
@@ -672,7 +442,6 @@ class HybridGridEditorApp:
         except ValueError:
             return
 
-        # Restaure l'ancienne couleur si besoin
         if self.edited_bar and self.edited_bar != bar_obj:
             self.vectorial_editor.set_bar_background(self.edited_bar, "")
 
@@ -680,11 +449,9 @@ class HybridGridEditorApp:
         self.vectorial_editor.set_bar_background(bar_obj, "#FFF2CC")
 
         def on_save():
-            """Sauvegarde et rafraîchit le canvas"""
             self._on_measure_saved()
 
         def on_close():
-            """Nettoie la surbrillance à la fermeture définitive"""
             if self.edited_bar:
                 self.vectorial_editor.set_bar_background(self.edited_bar, "")
                 self.edited_bar = None
@@ -694,19 +461,13 @@ class HybridGridEditorApp:
             nonlocal current_index
             if not bars_list:
                 return None
-            
-            # 1. Nettoie l'ancienne surbrillance sur le canvas
+             
             self.vectorial_editor.set_bar_background(bars_list[current_index], "")
-
-            # 2. Calcule le nouvel index de manière circulaire
             current_index = (current_index + direction) % len(bars_list)
             next_bar = bars_list[current_index]
 
-            # 3. Met à jour la référence active et applique la surbrillance jaune
             self.edited_bar = next_bar
             self.vectorial_editor.set_bar_background(next_bar, "#FFF2CC")
-            
-            # 4. Rafraîchit l'affichage de la grille
             self._on_measure_saved()
 
             return next_bar
@@ -720,7 +481,6 @@ class HybridGridEditorApp:
         )
 
     def _on_measure_saved(self):
-        """Callback déclenché lorsque la mesure est modifiée et validée."""
         self.vectorial_editor.redraw()
         self.mark_as_modified()
 
@@ -741,52 +501,52 @@ class HybridGridEditorApp:
             try:
                 with open(CONFIG_FILE_PATH, "r", encoding="utf-8") as f:
                     config = json.load(f)
-                    json_path = config.get("last_json_filepath")
-                    if json_path:
+                    if json_path := config.get("last_json_filepath"):
                         self.last_json_filepath = json_path
-
-                    ms_path = config.get("last_musescore_filepath")
-                    if ms_path:
+                    if ms_path := config.get("last_musescore_filepath"):
                         self.last_musescore_filepath = ms_path
-
-                    musescore_exe = config.get("musescore_path")
-                    if musescore_exe:
+                    if musescore_exe := config.get("musescore_path"):
                         self.musescore_path = musescore_exe
-
-                    biab_path = config.get("last_biab_filepath")
-                    if biab_path:
+                    if biab_path := config.get("last_biab_filepath"):
                         self.last_biab_filepath = biab_path
-
-                    pdf_path = config.get("last_pdf_filepath")
-                    if pdf_path:
+                    if pdf_path := config.get("last_pdf_filepath"):
                         self.last_pdf_filepath = pdf_path
-
-                    catalog = config.get("style_catalog_path")
-                    if catalog and os.path.isfile(catalog):
-                        self.style_catalog_path = catalog
-
-                    port_idx = config.get("midi_port_idx")
-                    if port_idx is not None:
-                        self.midi_port_idx = int(port_idx)
-            except Exception as e:
-                print(f"Erreur lors du chargement de la configuration : {e}")
+                    if excel_path := config.get("last_excel_filepath"):
+                        self.last_excel_filepath = excel_path
+                    if midi_idx := config.get("midi_port_idx"):
+                        self.midi_port_idx = int(midi_idx)
+            except Exception:
+                pass
 
     def save_config(self):
-        config = {
-            "last_json_filepath": self.last_json_filepath,
-            "last_musescore_filepath": self.last_musescore_filepath,
-            "musescore_path": self.musescore_path,
-            "last_biab_filepath": self.last_biab_filepath,
-            "last_pdf_filepath": self.last_pdf_filepath,
-            "style_catalog_path": self.style_catalog_path,
-            "midi_port_idx": self.midi_port_idx
-        }
+        config = {}
+        if os.path.isfile(CONFIG_FILE_PATH):
+            try:
+                with open(CONFIG_FILE_PATH, "r", encoding="utf-8") as f:
+                    config = json.load(f)
+            except Exception:
+                pass
+
+        if self.last_json_filepath:
+            config["last_json_filepath"] = self.last_json_filepath
+        if self.last_musescore_filepath:
+            config["last_musescore_filepath"] = self.last_musescore_filepath
+        if self.last_biab_filepath:
+            config["last_biab_filepath"] = self.last_biab_filepath
+        if self.last_pdf_filepath:
+            config["last_pdf_filepath"] = self.last_pdf_filepath
+        if self.last_excel_filepath:
+            config["last_excel_filepath"] = self.last_excel_filepath
+        if self.musescore_path:
+            config["musescore_path"] = self.musescore_path
+        if hasattr(self, 'midi_port_idx'):
+            config["midi_port_idx"] = self.midi_port_idx
+
         try:
             with open(CONFIG_FILE_PATH, "w", encoding="utf-8") as f:
-                json.dump(config, f, ensure_ascii=False, indent=4)
-        except Exception as e:
-            print(f"Erreur lors de la sauvegarde de la configuration : {e}")
-
+                json.dump(config, f, indent=4)
+        except Exception:
+            pass
 
 if __name__ == "__main__":
     root = TkinterDnD.Tk()
