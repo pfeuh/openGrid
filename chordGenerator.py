@@ -40,7 +40,7 @@ QUALITY_INTERVALS = {
     "7M": [0, 4, 7, 11],  # Alias Majeur 7
     "m7": [0, 3, 7, 10],  # Mineur 7
     "-7": [0, 3, 7, 10],  # Mineur 7
-    "mM7": [0, 3, 7, 11],  # Mineur 7
+    "mM7": [0, 3, 7, 11], # Mineur 7
     "9": [0, 4, 7, 10, 14], # 9e
     "m9": [0, 3, 7, 10, 14], # Mineur 9
     "-9": [0, 3, 7, 10, 14], # Mineur 9
@@ -192,6 +192,9 @@ def chord_to_midi(chord_str, base_octave=1):
     fondamentale (et de la basse) est tolérée en minuscule ou majuscule.
     """
     clean_chord = chord_str.strip()
+    if "@" in clean_chord:
+        clean_chord = clean_chord.split("@")[0].strip()
+        
     bass_note_midi = None
 
     if "/" in clean_chord:
